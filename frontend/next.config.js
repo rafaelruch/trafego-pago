@@ -2,14 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   async rewrites() {
-    // BACKEND_URL é lida em runtime pelo servidor Next.js (não é baked no build)
-    // Dentro do Docker: http://backend:8000
-    // Desenvolvimento local sem Docker: http://localhost:8000
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    // http://backend:8000 é o hostname Docker interno (nome do serviço no docker-compose)
+    // Avaliado no BUILD TIME e gravado no routes-manifest.json
+    // Funciona tanto no local (docker-compose) quanto no EasyPanel
     return [
       {
         source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
+        destination: 'http://backend:8000/api/:path*',
       },
     ]
   },

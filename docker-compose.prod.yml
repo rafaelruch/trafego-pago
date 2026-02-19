@@ -47,9 +47,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: always
-    environment:
-      # BACKEND_URL é lida em runtime pelo Next.js — não precisa de build arg
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
     ports:
       - "3000:3000"
     depends_on:
