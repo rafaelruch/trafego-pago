@@ -8,9 +8,18 @@ function CallbackHandler() {
 
   useEffect(() => {
     const token = params.get('token')
+    const code = params.get('code')
+    const state = params.get('state')
+
     if (token) {
+      // Fluxo completo: backend processou o code e devolveu o JWT
       localStorage.setItem('token', token)
       router.replace('/')
+    } else if (code) {
+      // Meta redirecionou para o frontend com o code OAuth
+      // Repassa para o backend via proxy Next.js (/api → http://backend:8000/api)
+      const qs = state ? `code=${code}&state=${state}` : `code=${code}`
+      window.location.replace(`/api/auth/callback?${qs}`)
     } else {
       router.replace('/login?error=auth_failed')
     }

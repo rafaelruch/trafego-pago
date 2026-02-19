@@ -10,8 +10,8 @@ class Settings(BaseSettings):
 
     # Meta / Facebook
     META_APP_ID: str = "1008535358112208"
-    META_APP_SECRET: str = ""
-    META_REDIRECT_URI: str = "https://apitrafego.ruch.com.br/api/auth/callback"
+    META_APP_SECRET: str = "747f8367a5cd216b754483e77f46265e"
+    META_REDIRECT_URI: str = "https://trafego.ruch.com.br/auth/callback"
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
