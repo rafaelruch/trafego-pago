@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Any
+import json
 
 
 class Settings(BaseSettings):
@@ -27,6 +29,18 @@ class Settings(BaseSettings):
 
     # Ambiente
     ENVIRONMENT: str = "development"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> Any:
+        if not v:
+            return ["http://localhost:3002"]
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return [v]
+        return v
 
     class Config:
         env_file = ".env"

@@ -28,8 +28,6 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:senha_local@db:5432/gestor_trafego}
       META_REDIRECT_URI: ${META_REDIRECT_URI:-http://localhost:8000/api/auth/callback}
-      CORS_ORIGINS: ${CORS_ORIGINS:-'["http://localhost:3002"]'}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3002}
       ENVIRONMENT: ${ENVIRONMENT:-development}
     depends_on:
       db:
