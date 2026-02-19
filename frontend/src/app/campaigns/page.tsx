@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Layout from '@/components/Layout'
 import CampaignTable from '@/components/CampaignTable'
@@ -14,8 +14,11 @@ export default function CampaignsPage() {
   const { data: accounts = [], isLoading: loadingAccounts } = useQuery<AdAccount[]>({
     queryKey: ['accounts'],
     queryFn: () => campaignsApi.getAccounts().then((r) => r.data),
-    onSuccess: (data) => { if (data.length && !selectedAccount) setSelectedAccount(data[0].account_id) },
   })
+
+  useEffect(() => {
+    if (accounts.length && !selectedAccount) setSelectedAccount(accounts[0].account_id)
+  }, [accounts, selectedAccount])
 
   const { data: insights = [], isLoading: loadingInsights } = useQuery<CampaignInsight[]>({
     queryKey: ['insights', selectedAccount, datePreset],

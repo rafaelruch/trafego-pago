@@ -31,7 +31,7 @@ services:
       META_REDIRECT_URI: http://localhost:8000/api/auth/callback
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       SECRET_KEY: ${SECRET_KEY:-local-dev-secret}
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: '["http://localhost:3001"]'
       ENVIRONMENT: development
     depends_on:
       db:
@@ -46,7 +46,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:

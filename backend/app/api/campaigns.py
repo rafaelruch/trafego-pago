@@ -43,19 +43,7 @@ def list_ad_accounts(
         raise HTTPException(400, str(e))
 
 
-@router.get("/{account_id}", summary="Listar campanhas de uma conta")
-def list_campaigns(
-    account_id: str,
-    current_user: User = Depends(get_current_user),
-):
-    """Retorna todas as campanhas de uma conta de anúncio."""
-    meta = _get_meta_service(current_user)
-    try:
-        return meta.get_campaigns(account_id)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-
+# IMPORTANTE: rota com sub-path deve vir ANTES de /{account_id}
 @router.get("/{account_id}/insights", summary="Insights de campanhas")
 def get_campaign_insights(
     account_id: str,
@@ -63,10 +51,7 @@ def get_campaign_insights(
     campaign_id: Optional[str] = Query(None, description="Filtrar por campanha específica"),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Retorna métricas de campanhas: impressões, cliques, gasto, ROAS, etc.
-    Acessível pelo painel (JWT).
-    """
+    """Retorna métricas de campanhas: impressões, cliques, gasto, ROAS, etc."""
     meta = _get_meta_service(current_user)
     try:
         return meta.get_campaign_insights(
@@ -93,5 +78,18 @@ def get_adset_insights(
             campaign_id=campaign_id,
             date_preset=date_preset,
         )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/{account_id}", summary="Listar campanhas de uma conta")
+def list_campaigns(
+    account_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna todas as campanhas de uma conta de anúncio."""
+    meta = _get_meta_service(current_user)
+    try:
+        return meta.get_campaigns(account_id)
     except ValueError as e:
         raise HTTPException(400, str(e))

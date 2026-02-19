@@ -3,7 +3,7 @@ uvicorn[standard]==0.32.1
 sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
-facebook-business==21.0.2
+facebook-business==21.0.5
 anthropic==0.40.0
 python-dotenv==1.0.1
 pydantic-settings==2.7.0
