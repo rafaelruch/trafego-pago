@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,8 +7,21 @@ from app.models.database import create_tables
 from app.models import user, approval, insight_cache  # noqa: importa modelos para criar tabelas
 from app.api import auth, campaigns, ai, approvals, reports
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Cria tabelas no banco ao iniciar (idempotente)
 create_tables()
+
+# Log de diagnóstico de configuração (sem dados sensíveis)
+logger.info("=== CONFIGURAÇÃO DO BACKEND ===")
+logger.info(f"ENVIRONMENT: {settings.ENVIRONMENT}")
+logger.info(f"META_APP_ID: {'OK (' + settings.META_APP_ID[:4] + '...)' if settings.META_APP_ID else 'NÃO CONFIGURADO!'}")
+logger.info(f"META_APP_SECRET: {'OK' if settings.META_APP_SECRET else 'NÃO CONFIGURADO!'}")
+logger.info(f"META_REDIRECT_URI: {settings.META_REDIRECT_URI}")
+logger.info(f"FRONTEND_URL: {settings.FRONTEND_URL}")
+logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS}")
+logger.info("================================")
 
 app = FastAPI(
     title="Gestor de Tráfego Pago API",

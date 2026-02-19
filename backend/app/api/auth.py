@@ -3,6 +3,7 @@ Autenticação via Meta OAuth 2.0.
 Fluxo: /api/auth/meta → usuário autoriza no Meta → /api/auth/callback → JWT gerado.
 """
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
@@ -24,15 +25,16 @@ META_SCOPES = "business_management,ads_management,ads_read,email"
 @router.get("/meta", summary="Iniciar login com Meta")
 def start_meta_oauth():
     """Redireciona o usuário para a tela de autorização do Meta."""
+    if not settings.META_APP_ID:
+        raise HTTPException(500, "META_APP_ID não configurado. Configure a variável de ambiente no servidor.")
     params = {
         "client_id": settings.META_APP_ID,
         "redirect_uri": settings.META_REDIRECT_URI,
         "scope": META_SCOPES,
         "response_type": "code",
-        "state": "gestor_trafego",  # Em produção, use CSRF token
+        "state": "gestor_trafego",
     }
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    return RedirectResponse(url=f"{META_AUTH_URL}?{query}")
+    return RedirectResponse(url=f"{META_AUTH_URL}?{urlencode(params)}")
 
 
 @router.get("/callback", summary="Callback OAuth do Meta")
