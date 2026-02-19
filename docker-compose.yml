@@ -27,7 +27,13 @@ services:
         required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:senha_local@db:5432/gestor_trafego}
-      META_REDIRECT_URI: ${META_REDIRECT_URI:-http://localhost:8000/api/auth/callback}
+      META_APP_ID: "1008535358112208"
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_REDIRECT_URI: "https://apitrafego.ruch.com.br/api/auth/callback"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      CORS_ORIGINS: '["https://trafego.ruch.com.br"]'
+      FRONTEND_URL: "https://trafego.ruch.com.br"
       ENVIRONMENT: ${ENVIRONMENT:-development}
     depends_on:
       db:
