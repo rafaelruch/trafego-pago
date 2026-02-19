@@ -2,10 +2,27 @@ version: '3.9'
 
 # docker-compose.prod.yml — VPS / EasyPanel
 #
+# Domínio de produção:
+#   Frontend : https://trafego.ruch.com.br
+#   Backend  : https://api.trafego.ruch.com.br
+#
 # No EasyPanel:
-# 1. Crie um serviço PostgreSQL separado no painel
-# 2. Configure as variáveis de ambiente abaixo no painel do EasyPanel
-# 3. O EasyPanel vai buildar as imagens a partir do GitHub
+#   1. Crie um serviço PostgreSQL separado no painel
+#   2. Configure as variáveis de ambiente abaixo no painel do EasyPanel
+#   3. O EasyPanel vai buildar as imagens a partir do GitHub
+#
+# Variáveis obrigatórias no EasyPanel (backend):
+#   DATABASE_URL      = postgres://user:pass@host:5432/gestor_trafego
+#   META_APP_ID       = 1008535358112208
+#   META_APP_SECRET   = (chave secreta do app Meta)
+#   META_REDIRECT_URI = https://api.trafego.ruch.com.br/api/auth/callback
+#   ANTHROPIC_API_KEY = sk-ant-...
+#   SECRET_KEY        = (string aleatória longa para JWT)
+#   CORS_ORIGINS      = ["https://trafego.ruch.com.br"]
+#   FRONTEND_URL      = https://trafego.ruch.com.br
+#
+# Variáveis obrigatórias no EasyPanel (frontend):
+#   NEXT_PUBLIC_API_URL = https://api.trafego.ruch.com.br
 
 services:
   backend:
@@ -14,14 +31,14 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      # Configurar no EasyPanel:
-      DATABASE_URL: ${DATABASE_URL}            # postgres://user:pass@host:5432/db
+      DATABASE_URL: ${DATABASE_URL}
       META_APP_ID: ${META_APP_ID}
       META_APP_SECRET: ${META_APP_SECRET}
-      META_REDIRECT_URI: ${META_REDIRECT_URI}  # https://seudominio.com/api/auth/callback
+      META_REDIRECT_URI: ${META_REDIRECT_URI:-https://api.trafego.ruch.com.br/api/auth/callback}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS}            # '["https://seudominio.com"]'
+      CORS_ORIGINS: ${CORS_ORIGINS:-["https://trafego.ruch.com.br"]}
+      FRONTEND_URL: ${FRONTEND_URL:-https://trafego.ruch.com.br}
       ENVIRONMENT: production
     ports:
       - "8000:8000"
@@ -32,10 +49,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}  # https://api.seudominio.com
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.trafego.ruch.com.br}
     restart: always
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.trafego.ruch.com.br}
     ports:
       - "3000:3000"
     depends_on:

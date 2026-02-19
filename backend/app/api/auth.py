@@ -86,8 +86,7 @@ def meta_oauth_callback(code: str, state: str = None, db: Session = Depends(get_
     jwt_token = create_access_token(data={"sub": str(user.id)})
 
     # Redireciona para o frontend com o token
-    frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else "http://localhost:3000"
-    return RedirectResponse(url=f"{frontend_url}/auth/callback?token={jwt_token}")
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback?token={jwt_token}")
 
 
 @router.get("/me", summary="Dados do usuário autenticado")
