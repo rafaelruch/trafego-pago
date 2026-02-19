@@ -1,0 +1,42 @@
+version: '3.9'
+
+# docker-compose.prod.yml — VPS / EasyPanel
+#
+# No EasyPanel:
+# 1. Crie um serviço PostgreSQL separado no painel
+# 2. Configure as variáveis de ambiente abaixo no painel do EasyPanel
+# 3. O EasyPanel vai buildar as imagens a partir do GitHub
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      # Configurar no EasyPanel:
+      DATABASE_URL: ${DATABASE_URL}            # postgres://user:pass@host:5432/db
+      META_APP_ID: ${META_APP_ID}
+      META_APP_SECRET: ${META_APP_SECRET}
+      META_REDIRECT_URI: ${META_REDIRECT_URI}  # https://seudominio.com/api/auth/callback
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}            # '["https://seudominio.com"]'
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}  # https://api.seudominio.com
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
