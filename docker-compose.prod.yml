@@ -1,5 +1,3 @@
-version: '3.9'
-
 # docker-compose.prod.yml — VPS / EasyPanel
 #
 # Domínio de produção:
