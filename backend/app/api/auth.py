@@ -22,26 +22,6 @@ META_TOKEN_URL = "https://graph.facebook.com/v21.0/oauth/access_token"
 META_SCOPES = "business_management,ads_management,ads_read,email"
 
 
-@router.get("/debug-config", summary="Diagnóstico de configuração (remover em produção)")
-def debug_config():
-    """Retorna o URL OAuth que seria gerado — para diagnóstico apenas."""
-    params = {
-        "client_id": settings.META_APP_ID,
-        "redirect_uri": settings.META_REDIRECT_URI,
-        "scope": META_SCOPES,
-        "response_type": "code",
-        "state": "gestor_trafego",
-    }
-    oauth_url = f"{META_AUTH_URL}?{urlencode(params)}"
-    return {
-        "meta_app_id": settings.META_APP_ID or "(vazio!)",
-        "meta_app_id_length": len(settings.META_APP_ID),
-        "meta_redirect_uri": settings.META_REDIRECT_URI,
-        "frontend_url": settings.FRONTEND_URL,
-        "environment": settings.ENVIRONMENT,
-        "oauth_url_completo": oauth_url,
-    }
-
 
 @router.get("/meta", summary="Iniciar login com Meta")
 def start_meta_oauth():

@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 dias
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3002"]
+    CORS_ORIGINS: List[str] = ["https://trafego.ruch.com.br"]
 
     # URL do frontend (para redirect pós-OAuth)
     FRONTEND_URL: str = "https://trafego.ruch.com.br"
@@ -30,11 +30,19 @@ class Settings(BaseSettings):
     # Ambiente
     ENVIRONMENT: str = "development"
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: Any) -> Any:
+        # SQLAlchemy 2.x exige postgresql://, não postgres://
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql://", 1)
+        return v
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: Any) -> Any:
         if not v:
-            return ["http://localhost:3002"]
+            return ["https://trafego.ruch.com.br"]
         if isinstance(v, str):
             try:
                 return json.loads(v)
