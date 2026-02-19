@@ -39,12 +39,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "3002:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # BACKEND_URL é lida em runtime pelo servidor Next.js (não precisa de build)
+      # Dentro do Docker os serviços se comunicam pelo nome do serviço
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
     depends_on:
       - backend
 

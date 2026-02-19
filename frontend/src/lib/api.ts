@@ -1,9 +1,8 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
+// Todas as chamadas usam URL relativa — o Next.js faz proxy para o backend via rewrites
 export const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -26,7 +25,8 @@ api.interceptors.response.use(
   }
 )
 
-export const metaLoginUrl = `${API_URL}/api/auth/meta`
+// URL relativa — o Next.js faz proxy para o backend
+export const metaLoginUrl = '/api/auth/meta'
 
 // Funções helpers
 export const authApi = {
@@ -51,8 +51,7 @@ export const aiApi = {
   analyze: (data: { account_ids?: string[]; date_preset?: string; custom_prompt?: string }) =>
     api.post('/ai/analyze', data),
   chat: (message: string, account_ids?: string[]) => ({
-    // Retorna URL para SSE stream
-    url: `${API_URL}/api/ai/chat`,
+    url: '/api/ai/chat',
     body: { message, account_ids },
   }),
 }

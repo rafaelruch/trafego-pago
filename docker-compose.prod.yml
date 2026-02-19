@@ -10,7 +10,7 @@
 #   3. O EasyPanel vai buildar as imagens a partir do GitHub
 #
 # Variáveis obrigatórias no EasyPanel (backend):
-#   DATABASE_URL      = postgres://user:pass@host:5432/gestor_trafego
+#   DATABASE_URL      = postgresql://user:pass@host:5432/gestor_trafego
 #   META_APP_ID       = 1008535358112208
 #   META_APP_SECRET   = (chave secreta do app Meta)
 #   META_REDIRECT_URI = https://apitrafego.ruch.com.br/api/auth/callback
@@ -20,7 +20,7 @@
 #   FRONTEND_URL      = https://trafego.ruch.com.br
 #
 # Variáveis obrigatórias no EasyPanel (frontend):
-#   NEXT_PUBLIC_API_URL = https://apitrafego.ruch.com.br
+#   BACKEND_URL = http://backend:8000  ← nome do serviço na rede Docker interna
 
 services:
   backend:
@@ -46,11 +46,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://apitrafego.ruch.com.br}
     restart: always
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://apitrafego.ruch.com.br}
+      # BACKEND_URL é lida em runtime pelo Next.js — não precisa de build arg
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
     ports:
       - "3000:3000"
     depends_on:
