@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres:senha@db:5432/gestor_trafego"
 
     # Meta / Facebook
-    META_APP_ID: str = ""
+    META_APP_ID: str = "1008535358112208"
     META_APP_SECRET: str = ""
-    META_REDIRECT_URI: str = "http://localhost:8000/api/auth/callback"
+    META_REDIRECT_URI: str = "https://apitrafego.ruch.com.br/api/auth/callback"
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3002"]
 
     # URL do frontend (para redirect pós-OAuth)
-    FRONTEND_URL: str = "http://localhost:3002"
+    FRONTEND_URL: str = "https://trafego.ruch.com.br"
 
     # Ambiente
     ENVIRONMENT: str = "development"
