@@ -30,13 +30,13 @@ services:
     restart: always
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      META_APP_ID: ${META_APP_ID}
+      META_APP_ID: "1008535358112208"
       META_APP_SECRET: ${META_APP_SECRET}
-      META_REDIRECT_URI: ${META_REDIRECT_URI:-https://apitrafego.ruch.com.br/api/auth/callback}
+      META_REDIRECT_URI: "https://apitrafego.ruch.com.br/api/auth/callback"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       SECRET_KEY: ${SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-["https://trafego.ruch.com.br"]}
-      FRONTEND_URL: ${FRONTEND_URL:-https://trafego.ruch.com.br}
+      CORS_ORIGINS: '["https://trafego.ruch.com.br"]'
+      FRONTEND_URL: "https://trafego.ruch.com.br"
       ENVIRONMENT: production
     ports:
       - "8000:8000"
