@@ -127,13 +127,13 @@ class MetaService:
             params = {
                 "date_preset": fb_preset,
                 "level": "campaign",
-                "fields": ",".join(INSIGHT_FIELDS + ["campaign_id", "campaign_name"]),
             }
 
             if campaign_id:
                 params["filtering"] = [{"field": "campaign.id", "operator": "EQUAL", "value": campaign_id}]
 
-            insights = account.get_insights(params=params)
+            fields = INSIGHT_FIELDS + ["campaign_id", "campaign_name"]
+            insights = account.get_insights(fields=fields, params=params)
             results = []
 
             for insight in insights:
@@ -191,10 +191,10 @@ class MetaService:
                 "date_preset": fb_preset,
                 "level": "adset",
                 "filtering": [{"field": "campaign.id", "operator": "EQUAL", "value": campaign_id}],
-                "fields": ",".join(INSIGHT_FIELDS + ["adset_id", "adset_name", "campaign_id", "daily_budget"]),
             }
 
-            insights = account.get_insights(params=params)
+            fields = INSIGHT_FIELDS + ["adset_id", "adset_name", "campaign_id", "daily_budget"]
+            insights = account.get_insights(fields=fields, params=params)
             return [
                 {
                     "adset_id": i.get("adset_id", ""),

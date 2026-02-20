@@ -2,6 +2,7 @@
 Endpoints de campanhas — listagem, status e métricas.
 Acessíveis via JWT (painel) ou API Key (N8N).
 """
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from app.core.security import get_current_user, get_n8n_user
 from app.models.database import get_db
 from app.models.user import User
 from app.services.meta_service import MetaService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -51,15 +54,48 @@ def get_campaign_insights(
     campaign_id: Optional[str] = Query(None, description="Filtrar por campanha específica"),
     current_user: User = Depends(get_current_user),
 ):
-    """Retorna métricas de campanhas: impressões, cliques, gasto, ROAS, etc."""
+    """
+    Retorna métricas de campanhas: impressões, cliques, gasto, ROAS, etc.
+    Campanhas ATIVAS sem dados no período aparecem com métricas zeradas.
+    """
     meta = _get_meta_service(current_user)
     try:
-        return meta.get_campaign_insights(
-            account_id=account_id,
-            date_preset=date_preset,
-            campaign_id=campaign_id,
-        )
-    except ValueError as e:
+        # Busca insights do período (pode retornar vazio se não há atividade)
+        try:
+            insights = meta.get_campaign_insights(
+                account_id=account_id,
+                date_preset=date_preset,
+                campaign_id=campaign_id,
+            )
+        except Exception as e:
+            logger.warning(f"Sem insights para {account_id} em {date_preset}: {e}")
+            insights = []
+
+        # Busca todas as campanhas da conta
+        try:
+            campaigns = meta.get_campaigns(account_id=account_id)
+        except Exception as e:
+            logger.error(f"Erro ao buscar campanhas de {account_id}: {e}")
+            campaigns = []
+
+        # Garante que campanhas ATIVAS aparecem mesmo sem dados no período
+        insight_ids = {i["campaign_id"] for i in insights}
+        for c in campaigns:
+            if c.get("status") == "ACTIVE" and c["campaign_id"] not in insight_ids:
+                insights.append({
+                    "campaign_id": c["campaign_id"],
+                    "campaign_name": c["name"],
+                    "status": c["status"],
+                    "objective": c.get("objective", ""),
+                    "impressions": 0, "clicks": 0, "spend": 0.0, "reach": 0,
+                    "cpm": 0.0, "cpc": 0.0, "ctr": 0.0, "conversions": 0,
+                    "cost_per_conversion": 0.0, "roas": 0.0, "frequency": 0.0,
+                    "account_id": account_id,
+                    "date_start": None, "date_stop": None,
+                })
+
+        return insights
+    except Exception as e:
         raise HTTPException(400, str(e))
 
 

@@ -16,7 +16,7 @@ from app.services.optimization_service import execute_approved_action
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ApprovalOut], summary="Listar aprovações")
+@router.get("", response_model=List[ApprovalOut], summary="Listar aprovações")
 def list_approvals(
     status: Optional[str] = Query(None, description="Filtrar por status: pending, approved, rejected, executed"),
     limit: int = Query(50, le=200),

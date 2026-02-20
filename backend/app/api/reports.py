@@ -57,18 +57,43 @@ def _fetch_report_data(user: User, account_ids: Optional[List[str]], date_preset
 
     for account_id in account_ids:
         try:
-            insights = meta.get_campaign_insights(account_id=account_id, date_preset=date_preset)
+            # Insights do período (pode ser vazio se não há atividade)
+            try:
+                insights = meta.get_campaign_insights(account_id=account_id, date_preset=date_preset)
+            except Exception as e:
+                logger.warning(f"Sem insights para {account_id} em {date_preset}: {e}")
+                insights = []
+
             campaigns = meta.get_campaigns(account_id=account_id)
-            status_map = {c["campaign_id"]: {"status": c["status"], "objective": c.get("objective")} for c in campaigns}
+            status_map = {c["campaign_id"]: c for c in campaigns}
 
             logger.info(f"Conta {account_id}: {len(insights)} insights, {len(campaigns)} campanhas")
 
+            # Adiciona insights com status e objetivo enriquecidos
+            insight_ids = set()
             for insight in insights:
-                campaign_info = status_map.get(insight["campaign_id"], {})
-                insight["status"] = campaign_info.get("status", "UNKNOWN")
-                insight["objective"] = campaign_info.get("objective", "")
+                c_info = status_map.get(insight["campaign_id"], {})
+                insight["status"] = c_info.get("status", "UNKNOWN")
+                insight["objective"] = c_info.get("objective", "")
                 insight["account_name"] = account_names.get(account_id, account_id)
+                insight_ids.add(insight["campaign_id"])
                 all_insights.append(insight)
+
+            # Inclui campanhas ATIVAS sem dados no período com métricas zeradas
+            for c in campaigns:
+                if c.get("status") == "ACTIVE" and c["campaign_id"] not in insight_ids:
+                    all_insights.append({
+                        "campaign_id": c["campaign_id"],
+                        "campaign_name": c["name"],
+                        "status": c["status"],
+                        "objective": c.get("objective", ""),
+                        "account_name": account_names.get(account_id, account_id),
+                        "impressions": 0, "clicks": 0, "spend": 0.0, "reach": 0,
+                        "cpm": 0.0, "cpc": 0.0, "ctr": 0.0, "conversions": 0,
+                        "cost_per_conversion": 0.0, "roas": 0.0, "frequency": 0.0,
+                        "account_id": account_id,
+                        "date_start": None, "date_stop": None,
+                    })
         except Exception as e:
             logger.error(f"Erro na conta {account_id}: {e}")
             continue
