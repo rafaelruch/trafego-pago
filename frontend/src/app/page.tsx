@@ -24,6 +24,8 @@ export default function DashboardPage() {
 
   const summary = data?.summary
   const campaigns: any[] = data?.campaigns || []
+  const hasData = !isLoading && campaigns.length > 0
+  const isEmpty = !isLoading && data && campaigns.length === 0
 
   // Top 10 por investimento para o gráfico
   const chartData = [...campaigns]
@@ -96,8 +98,17 @@ export default function DashboardPage() {
         <MetricsCard label="CPC Médio" value={`R$ ${(summary?.average_cpc || 0).toFixed(2)}`} icon="💡" loading={isLoading} />
       </div>
 
+      {/* Aviso sem dados */}
+      {isEmpty && (
+        <div className="card p-8 text-center mb-6">
+          <p className="text-2xl mb-2">📭</p>
+          <p className="font-semibold text-gray-700 mb-1">Nenhuma campanha encontrada para este período</p>
+          <p className="text-sm text-gray-500">Tente selecionar "Últimos 30 dias", "Este mês" ou verifique se há campanhas ativas na sua conta Meta Ads.</p>
+        </div>
+      )}
+
       {/* Gráficos */}
-      {chartData.length > 0 && (
+      {hasData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {/* Investimento por campanha */}
           <div className="card p-5">
@@ -130,10 +141,12 @@ export default function DashboardPage() {
       )}
 
       {/* Tabela de campanhas */}
-      <div className="mb-2">
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Todas as Campanhas</h2>
-        <CampaignTable campaigns={campaigns} loading={isLoading} />
-      </div>
+      {hasData && (
+        <div className="mb-2">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Todas as Campanhas</h2>
+          <CampaignTable campaigns={campaigns} loading={isLoading} />
+        </div>
+      )}
     </Layout>
   )
 }

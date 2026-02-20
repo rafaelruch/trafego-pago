@@ -2,6 +2,7 @@
 Relatórios — endpoints para N8N, exportação PDF e dados consolidados.
 Autenticação: JWT (painel) ou API Key (N8N).
 """
+import logging
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +16,7 @@ from app.services.meta_service import MetaService
 from app.services.pdf_service import generate_campaign_report
 from app.schemas.report import ReportSummary, CampaignReportRow, N8NReportResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -28,19 +30,20 @@ def _fetch_report_data(user: User, account_ids: Optional[List[str]], date_preset
     if not account_ids:
         accounts = meta.get_ad_accounts()
         account_ids = [a["account_id"] for a in accounts]
+        account_names = {a["account_id"]: a["name"] for a in accounts}
+        logger.info(f"Contas encontradas: {len(account_ids)} — {[a['name'] for a in accounts]}")
+    else:
+        account_names = {}
 
     all_insights = []
-    account_names = {}
 
     for account_id in account_ids:
         try:
-            accounts_info = meta.get_ad_accounts()
-            for acc in accounts_info:
-                account_names[acc["account_id"]] = acc["name"]
-
             insights = meta.get_campaign_insights(account_id=account_id, date_preset=date_preset)
             campaigns = meta.get_campaigns(account_id=account_id)
             status_map = {c["campaign_id"]: {"status": c["status"], "objective": c.get("objective")} for c in campaigns}
+
+            logger.info(f"Conta {account_id}: {len(insights)} insights, {len(campaigns)} campanhas")
 
             for insight in insights:
                 campaign_info = status_map.get(insight["campaign_id"], {})
@@ -48,7 +51,8 @@ def _fetch_report_data(user: User, account_ids: Optional[List[str]], date_preset
                 insight["objective"] = campaign_info.get("objective", "")
                 insight["account_name"] = account_names.get(account_id, account_id)
                 all_insights.append(insight)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Erro na conta {account_id}: {e}")
             continue
 
     if not all_insights:
