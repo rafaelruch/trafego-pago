@@ -28,10 +28,28 @@ def _fetch_report_data(user: User, account_ids: Optional[List[str]], date_preset
     meta = MetaService(access_token=user.meta_access_token)
 
     if not account_ids:
+        # 1. Busca contas diretas do usuário
         accounts = meta.get_ad_accounts()
+
+        # 2. Se não encontrou contas diretas, busca via Business Managers
+        #    (caso mais comum para agências e empresas que usam BM)
+        if not accounts:
+            logger.info("Nenhuma conta direta — buscando via Business Managers...")
+            try:
+                businesses = meta.get_business_managers()
+                logger.info(f"Business Managers encontrados: {len(businesses)} — {[b['name'] for b in businesses]}")
+                for bm in businesses:
+                    try:
+                        bm_accounts = meta.get_ad_accounts(business_id=bm["id"])
+                        accounts.extend(bm_accounts)
+                    except Exception as e:
+                        logger.error(f"Erro ao buscar contas do BM {bm['id']}: {e}")
+            except Exception as e:
+                logger.error(f"Erro ao buscar Business Managers: {e}")
+
         account_ids = [a["account_id"] for a in accounts]
         account_names = {a["account_id"]: a["name"] for a in accounts}
-        logger.info(f"Contas encontradas: {len(account_ids)} — {[a['name'] for a in accounts]}")
+        logger.info(f"Total de contas para busca: {len(account_ids)} — {[a['name'] for a in accounts]}")
     else:
         account_names = {}
 
