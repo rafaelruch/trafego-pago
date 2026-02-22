@@ -274,7 +274,6 @@ Por favor:
         with client.messages.stream(
             model="claude-opus-4-6",
             max_tokens=4096,
-            thinking={"type": "adaptive"},
             system=SYSTEM_PROMPT,
             tools=tools,
             messages=messages,
@@ -343,7 +342,6 @@ def chat_with_ai(
     with client.messages.stream(
         model="claude-opus-4-6",
         max_tokens=2048,
-        thinking={"type": "adaptive"},
         system=SYSTEM_PROMPT,
         tools=tools,
         messages=messages,
