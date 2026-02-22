@@ -25,6 +25,7 @@ BASIC_INSIGHT_FIELDS = [
     "campaign_id", "campaign_name",
     "impressions", "clicks", "spend", "reach",
     "cpm", "cpc", "ctr", "frequency",
+    "actions", "cost_per_action_type",
 ]
 
 # Campos que exigem eventos de conversão configurados na conta
@@ -33,6 +34,14 @@ CONVERSION_INSIGHT_FIELDS = [
 ]
 
 INSIGHT_FIELDS = BASIC_INSIGHT_FIELDS + CONVERSION_INSIGHT_FIELDS
+
+# Action types de mensagens/WhatsApp que contam como conversões
+MESSAGING_ACTION_TYPES = {
+    "onsite_conversion.messaging_conversation_started_7d",
+    "onsite_conversion.messaging_first_reply",
+    "omni_messaging_conversation_started",
+    "omni_initiated_conversation",
+}
 
 DATE_PRESETS = {
     "last_7d": "last_7d",
@@ -161,6 +170,7 @@ class MetaService:
                 except (IndexError, TypeError, ValueError):
                     roas = 0.0
 
+            # Conversões padrão (pixel — e-commerce, leads, etc.)
             conversions = 0
             cost_per_conversion = 0.0
             if insight.get("conversions"):
@@ -174,6 +184,27 @@ class MetaService:
                     cost_per_conversion = float(insight["cost_per_conversion"][0].get("value", 0))
                 except (IndexError, TypeError, ValueError):
                     pass
+
+            # Conversões de mensageria/WhatsApp (conversas iniciadas)
+            # Sobrescreve somente se não houver conversões de pixel
+            if conversions == 0:
+                actions = insight.get("actions") or []
+                for action in actions:
+                    if action.get("action_type") in MESSAGING_ACTION_TYPES:
+                        try:
+                            conversions += int(float(action.get("value", 0)))
+                        except (ValueError, TypeError):
+                            pass
+
+            if cost_per_conversion == 0.0 and conversions > 0:
+                cost_per_action = insight.get("cost_per_action_type") or []
+                for cpa in cost_per_action:
+                    if cpa.get("action_type") in MESSAGING_ACTION_TYPES:
+                        try:
+                            cost_per_conversion = float(cpa.get("value", 0))
+                            break
+                        except (ValueError, TypeError):
+                            pass
 
             results.append({
                 "campaign_id": insight.get("campaign_id", ""),
