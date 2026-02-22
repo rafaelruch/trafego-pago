@@ -1,33 +1,51 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Layout from '@/components/Layout'
 import MetricsCard from '@/components/MetricsCard'
 import CampaignTable from '@/components/CampaignTable'
-import { reportsApi } from '@/lib/api'
-import { DATE_PRESET_LABELS, type DatePreset } from '@/lib/types'
+import { campaignsApi, reportsApi } from '@/lib/api'
+import { AdAccount, CampaignInsight, DATE_PRESET_LABELS, type DatePreset } from '@/lib/types'
 import { Download, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend,
+  ResponsiveContainer,
 } from 'recharts'
 
 export default function DashboardPage() {
+  const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [datePreset, setDatePreset] = useState<DatePreset>('last_7d')
   const [downloading, setDownloading] = useState(false)
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['dashboard', datePreset],
-    queryFn: () => reportsApi.getSummary(datePreset).then((r) => r.data),
+  const { data: accounts = [], isLoading: loadingAccounts } = useQuery<AdAccount[]>({
+    queryKey: ['accounts'],
+    queryFn: () => campaignsApi.getAccounts().then((r) => r.data),
   })
 
-  const summary = data?.summary
-  const campaigns: any[] = data?.campaigns || []
-  const hasData = !isLoading && campaigns.length > 0
-  const isEmpty = !isLoading && data && campaigns.length === 0
+  useEffect(() => {
+    if (accounts.length && !selectedAccount) setSelectedAccount(accounts[0].account_id)
+  }, [accounts, selectedAccount])
 
-  // Top 10 por investimento para o gráfico
+  const { data: campaigns = [], isLoading: loadingInsights, refetch, isRefetching } = useQuery<CampaignInsight[]>({
+    queryKey: ['dashboard-insights', selectedAccount, datePreset],
+    queryFn: () => campaignsApi.getInsights(selectedAccount, datePreset).then((r) => r.data),
+    enabled: !!selectedAccount,
+  })
+
+  const isLoading = loadingAccounts || (!!selectedAccount && loadingInsights)
+  const hasData = !isLoading && campaigns.length > 0
+  const isEmpty = !isLoading && selectedAccount && campaigns.length === 0
+
+  // Métricas consolidadas da conta selecionada
+  const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0)
+  const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0)
+  const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0)
+  const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0)
+  const avgRoas = campaigns.filter((c) => c.roas > 0).reduce((s, c, _, a) => s + c.roas / a.length, 0)
+  const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0
+
+  // Top 10 por investimento para os gráficos
   const chartData = [...campaigns]
     .sort((a, b) => b.spend - a.spend)
     .slice(0, 10)
@@ -35,7 +53,6 @@ export default function DashboardPage() {
       name: c.campaign_name.length > 20 ? c.campaign_name.slice(0, 20) + '…' : c.campaign_name,
       investimento: c.spend,
       roas: c.roas,
-      conversoes: c.conversions,
     }))
 
   const handleDownloadPdf = async () => {
@@ -56,15 +73,34 @@ export default function DashboardPage() {
     }
   }
 
+  const selectedAccountName = accounts.find((a) => a.account_id === selectedAccount)?.name || selectedAccount
+
   return (
     <Layout>
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500">Visão consolidada de todas as campanhas</p>
+          <p className="text-sm text-gray-500">
+            {selectedAccountName ? `Performance de ${selectedAccountName}` : 'Selecione uma conta'}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Seletor de conta */}
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            disabled={loadingAccounts}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-brand-500 outline-none max-w-xs"
+          >
+            {loadingAccounts && <option>Carregando contas...</option>}
+            {accounts.map((acc) => (
+              <option key={acc.account_id} value={acc.account_id}>
+                {acc.name || acc.account_id}
+              </option>
+            ))}
+          </select>
+
           {/* Seletor de período */}
           <select
             value={datePreset}
@@ -88,14 +124,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Métricas de resumo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
-        <MetricsCard label="Investimento Total" value={`R$ ${(summary?.total_spend || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} icon="💰" loading={isLoading} highlight="blue" />
-        <MetricsCard label="Impressões" value={summary?.total_impressions || 0} icon="👁️" loading={isLoading} />
-        <MetricsCard label="Cliques" value={summary?.total_clicks || 0} icon="🖱️" loading={isLoading} />
-        <MetricsCard label="Conversões" value={summary?.total_conversions || 0} icon="🎯" loading={isLoading} highlight={summary?.total_conversions > 0 ? 'green' : 'none'} />
-        <MetricsCard label="ROAS Médio" value={`${(summary?.average_roas || 0).toFixed(2)}x`} icon="📈" loading={isLoading} highlight={summary?.average_roas >= 2 ? 'green' : summary?.average_roas > 0 && summary.average_roas < 1 ? 'red' : 'none'} />
-        <MetricsCard label="CPC Médio" value={`R$ ${(summary?.average_cpc || 0).toFixed(2)}`} icon="💡" loading={isLoading} />
+      {/* Métricas */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <MetricsCard label="Investimento" value={`R$ ${totalSpend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} icon="💰" loading={isLoading} highlight="blue" />
+        <MetricsCard label="Impressões" value={totalImpressions.toLocaleString('pt-BR')} icon="👁️" loading={isLoading} />
+        <MetricsCard label="Cliques" value={totalClicks.toLocaleString('pt-BR')} icon="🖱️" loading={isLoading} />
+        <MetricsCard label="Conversões" value={totalConversions} icon="🎯" loading={isLoading} highlight={totalConversions > 0 ? 'green' : 'none'} />
+        <MetricsCard label="ROAS Médio" value={`${avgRoas.toFixed(2)}x`} icon="📈" loading={isLoading} highlight={avgRoas >= 2 ? 'green' : avgRoas > 0 && avgRoas < 1 ? 'red' : 'none'} />
+        <MetricsCard label="CPC Médio" value={`R$ ${avgCpc.toFixed(2)}`} icon="💡" loading={isLoading} />
       </div>
 
       {/* Aviso sem dados */}
@@ -103,7 +139,7 @@ export default function DashboardPage() {
         <div className="card p-8 text-center mb-6">
           <p className="text-2xl mb-2">📭</p>
           <p className="font-semibold text-gray-700 mb-1">Nenhuma campanha encontrada para este período</p>
-          <p className="text-sm text-gray-500">Tente selecionar "Últimos 30 dias", "Este mês" ou verifique se há campanhas ativas na sua conta Meta Ads.</p>
+          <p className="text-sm text-gray-500">Tente selecionar "Últimos 30 dias", "Este mês" ou verifique se há campanhas ativas nesta conta.</p>
         </div>
       )}
 
@@ -143,7 +179,7 @@ export default function DashboardPage() {
       {/* Tabela de campanhas */}
       {hasData && (
         <div className="mb-2">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">Todas as Campanhas</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Campanhas</h2>
           <CampaignTable campaigns={campaigns} loading={isLoading} />
         </div>
       )}

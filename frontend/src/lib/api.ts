@@ -57,7 +57,7 @@ export const aiApi = {
 }
 
 export const approvalsApi = {
-  list: (status?: string) => api.get('/approvals/', { params: status ? { status } : {} }),
+  list: (status?: string) => api.get('/approvals', { params: status ? { status } : {} }),
   pendingCount: () => api.get('/approvals/pending/count'),
   approve: (id: number, notes?: string) => api.post(`/approvals/${id}/approve`, { notes }),
   reject: (id: number, notes?: string) => api.post(`/approvals/${id}/reject`, { notes }),

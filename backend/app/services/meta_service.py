@@ -3,8 +3,11 @@ Wrapper do Meta Marketing API usando o facebook-business SDK.
 Gerencia Business Managers, contas de anúncio, campanhas e insights.
 """
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.user import User as FBUser
@@ -29,16 +32,14 @@ INSIGHT_FIELDS = [
     "cost_per_conversion",
     "purchase_roas",
     "frequency",
-    "actions",
-    "action_values",
 ]
 
 DATE_PRESETS = {
-    "last_7d": "last_7_d",
-    "last_30d": "last_30_d",
+    "last_7d": "last_7d",
+    "last_30d": "last_30d",
     "this_month": "this_month",
     "last_month": "last_month",
-    "last_90d": "last_90_d",
+    "last_90d": "last_90d",
 }
 
 
@@ -133,6 +134,7 @@ class MetaService:
                 params["filtering"] = [{"field": "campaign.id", "operator": "EQUAL", "value": campaign_id}]
 
             fields = INSIGHT_FIELDS + ["campaign_id", "campaign_name"]
+            logger.info(f"Buscando insights: account={account_id}, preset={fb_preset}, fields={fields}, params={params}")
             insights = account.get_insights(fields=fields, params=params)
             results = []
 
@@ -177,8 +179,10 @@ class MetaService:
                     "date_stop": insight.get("date_stop"),
                 })
 
+            logger.info(f"Insights recebidos: {len(results)} registros para account={account_id}, preset={fb_preset}")
             return results
         except Exception as e:
+            logger.error(f"Erro ao buscar insights account={account_id}, preset={fb_preset}: {str(e)}")
             raise ValueError(f"Erro ao buscar insights: {str(e)}")
 
     def get_adset_insights(self, account_id: str, campaign_id: str, date_preset: str = "last_7d") -> List[Dict]:
