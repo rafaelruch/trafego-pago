@@ -3,6 +3,7 @@ Serviço de IA usando Claude claude-opus-4-6 com tool use (manual loop).
 As ferramentas NÃO executam imediatamente — criam registros de aprovação no DB.
 """
 import json
+import os
 from typing import List, Dict, Any, Generator, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -11,6 +12,18 @@ import anthropic
 
 from app.core.config import settings
 from app.models.approval import Approval, ApprovalStatus
+
+
+def _get_anthropic_client() -> anthropic.Anthropic:
+    """Cria cliente Anthropic buscando a API key de todas as fontes possíveis."""
+    api_key = (
+        os.environ.get("ANTHROPIC_API_KEY")
+        or settings.ANTHROPIC_API_KEY
+        or None
+    )
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY não configurada. Defina-a no arquivo .env do servidor.")
+    return anthropic.Anthropic(api_key=api_key)
 
 
 SYSTEM_PROMPT = """Você é um especialista em tráfego pago digital com mais de 10 anos de experiência
@@ -248,7 +261,7 @@ def analyze_campaigns(
     Analisa dados de campanhas com Claude e cria sugestões de otimização.
     Usa manual agentic loop com human-in-the-loop.
     """
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY or None)
+    client = _get_anthropic_client()
     tools = _build_tools()
 
     # Prepara contexto com dados das campanhas
@@ -324,7 +337,7 @@ def chat_with_ai(
     Chat com IA via streaming. Suporta histórico de conversa.
     Retorna generator de chunks de texto.
     """
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY or None)
+    client = _get_anthropic_client()
     tools = _build_tools()
 
     messages = list(conversation_history or [])
