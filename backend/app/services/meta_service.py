@@ -35,11 +35,11 @@ CONVERSION_INSIGHT_FIELDS = [
 INSIGHT_FIELDS = BASIC_INSIGHT_FIELDS + CONVERSION_INSIGHT_FIELDS
 
 DATE_PRESETS = {
-    "last_7d": "last_7_d",
-    "last_30d": "last_30_d",
+    "last_7d": "last_7d",
+    "last_30d": "last_30d",
     "this_month": "this_month",
     "last_month": "last_month",
-    "last_90d": "last_90_d",
+    "last_90d": "last_90d",
 }
 
 
