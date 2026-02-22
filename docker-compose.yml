@@ -30,7 +30,6 @@ services:
       META_APP_ID: "1008535358112208"
       META_APP_SECRET: "747f8367a5cd216b754483e77f46265e"
       META_REDIRECT_URI: "https://trafego.ruch.com.br/auth/callback"
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
       CORS_ORIGINS: '["https://trafego.ruch.com.br"]'
       FRONTEND_URL: "https://trafego.ruch.com.br"
