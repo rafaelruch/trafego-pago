@@ -78,8 +78,7 @@ def get_campaign_insights(
             )
         except Exception as e:
             logger.error(f"Falha ao buscar insights para {account_id} em {date_preset}: {e}")
-            # Não silencia o erro — propaga para o frontend saber o que aconteceu
-            raise HTTPException(400, f"Erro ao buscar métricas de campanhas: {str(e)}")
+            insights = []
 
         # Enriquece cada insight com status e nome corretos da campanha
         for insight in insights:
