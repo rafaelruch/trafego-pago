@@ -20,19 +20,19 @@ from facebook_business.adobjects.ad import Ad
 from app.core.config import settings
 
 
-INSIGHT_FIELDS = [
-    "impressions",
-    "clicks",
-    "spend",
-    "reach",
-    "cpm",
-    "cpc",
-    "ctr",
-    "conversions",
-    "cost_per_conversion",
-    "purchase_roas",
-    "frequency",
+# Campos básicos — funcionam para qualquer conta
+BASIC_INSIGHT_FIELDS = [
+    "campaign_id", "campaign_name",
+    "impressions", "clicks", "spend", "reach",
+    "cpm", "cpc", "ctr", "frequency",
 ]
+
+# Campos que exigem eventos de conversão configurados na conta
+CONVERSION_INSIGHT_FIELDS = [
+    "conversions", "cost_per_conversion", "purchase_roas",
+]
+
+INSIGHT_FIELDS = BASIC_INSIGHT_FIELDS + CONVERSION_INSIGHT_FIELDS
 
 DATE_PRESETS = {
     "last_7d": "last_7_d",
@@ -123,70 +123,78 @@ class MetaService:
         date_preset: str = "last_7d",
         campaign_id: Optional[str] = None,
     ) -> List[Dict]:
-        """Retorna insights (métricas) de campanhas."""
-        try:
-            fb_preset = DATE_PRESETS.get(date_preset, "last_7_d")
-            account = AdAccount(f"act_{account_id.replace('act_', '')}")
+        """
+        Retorna insights (métricas) de campanhas.
+        Tenta primeiro com todos os campos (incluindo conversões/ROAS).
+        Se falhar (conta sem eventos de conversão), usa apenas campos básicos.
+        """
+        fb_preset = DATE_PRESETS.get(date_preset, "last_7_d")
+        account = AdAccount(f"act_{account_id.replace('act_', '')}")
 
-            params = {
-                "date_preset": fb_preset,
-                "level": "campaign",
-            }
+        params = {
+            "date_preset": fb_preset,
+            "level": "campaign",
+        }
+        if campaign_id:
+            params["filtering"] = [{"field": "campaign.id", "operator": "EQUAL", "value": campaign_id}]
 
-            if campaign_id:
-                params["filtering"] = [{"field": "campaign.id", "operator": "EQUAL", "value": campaign_id}]
+        # Tenta com campos completos primeiro, recai em básicos se falhar
+        raw_insights = None
+        for fields in [INSIGHT_FIELDS, BASIC_INSIGHT_FIELDS]:
+            try:
+                logger.info(f"Buscando insights: account={account_id}, preset={fb_preset}, campos={len(fields)}")
+                raw_insights = list(account.get_insights(fields=fields, params=params))
+                logger.info(f"OK: {len(raw_insights)} registros com {len(fields)} campos")
+                break
+            except Exception as e:
+                if fields is BASIC_INSIGHT_FIELDS:
+                    logger.error(f"Falha mesmo com campos básicos: {e}")
+                    raise ValueError(f"Erro ao buscar insights: {str(e)}")
+                logger.warning(f"Campos de conversão falharam ({e}). Tentando apenas campos básicos...")
 
-            fields = INSIGHT_FIELDS + ["campaign_id", "campaign_name"]
-            logger.info(f"Buscando insights: account={account_id}, preset={fb_preset}, fields={fields}, params={params}")
-            insights = account.get_insights(fields=fields, params=params)
-            results = []
+        results = []
+        for insight in raw_insights:
+            roas = 0.0
+            if insight.get("purchase_roas"):
+                try:
+                    roas = float(insight["purchase_roas"][0].get("value", 0))
+                except (IndexError, TypeError, ValueError):
+                    roas = 0.0
 
-            for insight in insights:
-                roas = 0.0
-                if insight.get("purchase_roas"):
-                    try:
-                        roas = float(insight["purchase_roas"][0].get("value", 0))
-                    except (IndexError, TypeError, ValueError):
-                        roas = 0.0
+            conversions = 0
+            cost_per_conversion = 0.0
+            if insight.get("conversions"):
+                try:
+                    conversions = int(float(insight["conversions"][0].get("value", 0)))
+                except (IndexError, TypeError, ValueError):
+                    pass
 
-                conversions = 0
-                cost_per_conversion = 0.0
-                if insight.get("conversions"):
-                    try:
-                        conversions = int(float(insight["conversions"][0].get("value", 0)))
-                    except (IndexError, TypeError, ValueError):
-                        pass
+            if insight.get("cost_per_conversion"):
+                try:
+                    cost_per_conversion = float(insight["cost_per_conversion"][0].get("value", 0))
+                except (IndexError, TypeError, ValueError):
+                    pass
 
-                if insight.get("cost_per_conversion"):
-                    try:
-                        cost_per_conversion = float(insight["cost_per_conversion"][0].get("value", 0))
-                    except (IndexError, TypeError, ValueError):
-                        pass
+            results.append({
+                "campaign_id": insight.get("campaign_id", ""),
+                "campaign_name": insight.get("campaign_name", ""),
+                "impressions": int(insight.get("impressions", 0)),
+                "clicks": int(insight.get("clicks", 0)),
+                "spend": float(insight.get("spend", 0)),
+                "reach": int(insight.get("reach", 0)),
+                "cpm": float(insight.get("cpm", 0)),
+                "cpc": float(insight.get("cpc", 0)),
+                "ctr": float(insight.get("ctr", 0)),
+                "conversions": conversions,
+                "cost_per_conversion": cost_per_conversion,
+                "roas": roas,
+                "frequency": float(insight.get("frequency", 0)),
+                "account_id": account_id,
+                "date_start": insight.get("date_start"),
+                "date_stop": insight.get("date_stop"),
+            })
 
-                results.append({
-                    "campaign_id": insight.get("campaign_id", ""),
-                    "campaign_name": insight.get("campaign_name", ""),
-                    "impressions": int(insight.get("impressions", 0)),
-                    "clicks": int(insight.get("clicks", 0)),
-                    "spend": float(insight.get("spend", 0)),
-                    "reach": int(insight.get("reach", 0)),
-                    "cpm": float(insight.get("cpm", 0)),
-                    "cpc": float(insight.get("cpc", 0)),
-                    "ctr": float(insight.get("ctr", 0)),
-                    "conversions": conversions,
-                    "cost_per_conversion": cost_per_conversion,
-                    "roas": roas,
-                    "frequency": float(insight.get("frequency", 0)),
-                    "account_id": account_id,
-                    "date_start": insight.get("date_start"),
-                    "date_stop": insight.get("date_stop"),
-                })
-
-            logger.info(f"Insights recebidos: {len(results)} registros para account={account_id}, preset={fb_preset}")
-            return results
-        except Exception as e:
-            logger.error(f"Erro ao buscar insights account={account_id}, preset={fb_preset}: {str(e)}")
-            raise ValueError(f"Erro ao buscar insights: {str(e)}")
+        return results
 
     def get_adset_insights(self, account_id: str, campaign_id: str, date_preset: str = "last_7d") -> List[Dict]:
         """Retorna insights de conjuntos de anúncios de uma campanha."""
