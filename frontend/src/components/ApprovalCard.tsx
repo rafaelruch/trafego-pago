@@ -84,6 +84,24 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
           {payload.new_bid && (
             <p>🎯 Novo lance: <strong>R$ {Number(payload.new_bid).toFixed(2)}</strong></p>
           )}
+          {payload.objective && (
+            <p>🎯 Objetivo: <strong>{payload.objective}</strong></p>
+          )}
+          {payload.daily_budget && (
+            <p>💰 Orçamento diário: <strong>R$ {Number(payload.daily_budget).toFixed(2)}/dia</strong></p>
+          )}
+          {payload.targeting_description && (
+            <div>
+              <p className="font-semibold text-gray-500 mb-0.5">👥 Público-alvo:</p>
+              <p className="font-sans whitespace-pre-wrap">{payload.targeting_description}</p>
+            </div>
+          )}
+          {payload.strategy && (
+            <div>
+              <p className="font-semibold text-gray-500 mb-0.5">📋 Estratégia:</p>
+              <p className="font-sans whitespace-pre-wrap">{payload.strategy}</p>
+            </div>
+          )}
           {payload.campaign_id && (
             <p className="text-gray-400">ID: {payload.campaign_id}</p>
           )}

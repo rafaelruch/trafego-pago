@@ -47,6 +47,15 @@ def execute_approved_action(approval: Approval, db: Session) -> dict:
             )
             result_msg = f"Lance ajustado para R$ {payload['new_bid']:.2f} com sucesso"
 
+        elif approval.action_type == "create_campaign":
+            campaign_id = meta.create_campaign(
+                account_id=approval.account_id,
+                name=payload["campaign_name"],
+                objective=payload["objective"],
+                daily_budget=float(payload["daily_budget"]),
+            )
+            result_msg = f"Campanha '{payload['campaign_name']}' criada com sucesso (ID: {campaign_id}) — status PAUSADA. Adicione criativos e ative quando pronto."
+
         else:
             return {"success": False, "error": f"Tipo de ação desconhecido: {approval.action_type}"}
 

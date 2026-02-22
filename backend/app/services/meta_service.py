@@ -35,11 +35,11 @@ INSIGHT_FIELDS = [
 ]
 
 DATE_PRESETS = {
-    "last_7d": "last_7d",
-    "last_30d": "last_30d",
+    "last_7d": "last_7_d",
+    "last_30d": "last_30_d",
     "this_month": "this_month",
     "last_month": "last_month",
-    "last_90d": "last_90d",
+    "last_90d": "last_90_d",
 }
 
 
@@ -98,11 +98,11 @@ class MetaService:
                     "start_time", "stop_time", "created_time",
                 ]
             )
-            return [
+            result = [
                 {
                     "campaign_id": c["id"],
                     "name": c["name"],
-                    "status": c["status"],
+                    "status": str(c.get("status", "")).upper(),
                     "objective": c.get("objective", ""),
                     "daily_budget": float(c["daily_budget"]) / 100 if c.get("daily_budget") else None,
                     "lifetime_budget": float(c["lifetime_budget"]) / 100 if c.get("lifetime_budget") else None,
@@ -111,7 +111,10 @@ class MetaService:
                 }
                 for c in campaigns
             ]
+            logger.info(f"Campanhas de {account_id}: {[{'id': r['campaign_id'], 'status': r['status']} for r in result]}")
+            return result
         except Exception as e:
+            logger.error(f"Erro ao buscar campanhas de {account_id}: {str(e)}")
             raise ValueError(f"Erro ao buscar campanhas: {str(e)}")
 
     def get_campaign_insights(
@@ -267,6 +270,21 @@ class MetaService:
             return True
         except Exception as e:
             raise ValueError(f"Erro ao ajustar lance do adset {adset_id}: {str(e)}")
+
+    def create_campaign(self, account_id: str, name: str, objective: str, daily_budget: float) -> str:
+        """Cria uma nova campanha PAUSADA na conta (usuário adiciona criativos depois)."""
+        try:
+            account = AdAccount(f"act_{account_id.replace('act_', '')}")
+            campaign = account.create_campaign(params={
+                "name": name,
+                "objective": objective,
+                "status": Campaign.Status.paused,
+                "daily_budget": int(daily_budget * 100),
+                "special_ad_categories": [],
+            })
+            return campaign["id"]
+        except Exception as e:
+            raise ValueError(f"Erro ao criar campanha: {str(e)}")
 
     def get_user_info(self) -> Dict:
         """Retorna informações do usuário Meta."""

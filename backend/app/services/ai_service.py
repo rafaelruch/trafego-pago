@@ -21,6 +21,9 @@ IMPORTANTE: Ao sugerir otimizações, você deve SEMPRE usar as ferramentas disp
 criar as ações de otimização. Essas ações passarão por aprovação humana antes de serem
 executadas — explique claramente o motivo de cada sugestão.
 
+Você também pode sugerir a criação de NOVAS campanhas usando a ferramenta suggest_new_campaign
+quando identificar oportunidades não exploradas (nichos, objetivos ausentes, sazonalidade, etc.).
+
 Fale em português brasileiro. Seja direto e objetivo nas análises.
 Forneça benchmarks do setor quando relevante.
 Priorize otimizações com maior impacto no ROAS e ROI."""
@@ -87,6 +90,26 @@ def _build_tools() -> List[Dict]:
                     "reason": {"type": "string", "description": "Justificativa para o ajuste de lance"},
                 },
                 "required": ["adset_id", "campaign_id", "campaign_name", "account_id", "new_bid", "reason"],
+            },
+        },
+        {
+            "name": "suggest_new_campaign",
+            "description": "Sugere a criação de uma nova campanha. Use quando identificar oportunidades não exploradas: nichos sem campanha, objetivos ausentes (ex: só há campanhas de awareness mas não de conversão), sazonalidade, ou produtos/serviços sem cobertura de anúncios.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "account_id": {"type": "string", "description": "ID da conta de anúncio onde criar a campanha"},
+                    "campaign_name": {"type": "string", "description": "Nome sugerido para a nova campanha"},
+                    "objective": {
+                        "type": "string",
+                        "description": "Objetivo da campanha: CONVERSIONS, TRAFFIC, AWARENESS, LEAD_GENERATION, ENGAGEMENT, VIDEO_VIEWS, APP_INSTALLS",
+                    },
+                    "daily_budget": {"type": "number", "description": "Orçamento diário sugerido em reais"},
+                    "targeting_description": {"type": "string", "description": "Descrição do público-alvo sugerido (idade, interesses, comportamentos)"},
+                    "strategy": {"type": "string", "description": "Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento"},
+                    "reason": {"type": "string", "description": "Por que esta campanha pode gerar resultados — oportunidade identificada com base nos dados atuais"},
+                },
+                "required": ["account_id", "campaign_name", "objective", "daily_budget", "targeting_description", "strategy", "reason"],
             },
         },
     ]
@@ -192,6 +215,25 @@ def _execute_tool(
             account_id=tool_input.get("account_id"),
         )
         return f"✅ Sugestão criada (ID #{approval.id}): Ajustar lance para R$ {tool_input['new_bid']:.2f}. Aguardando aprovação."
+
+    elif tool_name == "suggest_new_campaign":
+        payload = {
+            "campaign_name": tool_input["campaign_name"],
+            "objective": tool_input["objective"],
+            "daily_budget": tool_input["daily_budget"],
+            "targeting_description": tool_input.get("targeting_description", ""),
+            "strategy": tool_input.get("strategy", ""),
+        }
+        approval = _create_approval(
+            db=db,
+            user_id=user_id,
+            action_type="create_campaign",
+            payload=payload,
+            ai_reasoning=reasoning,
+            campaign_name=tool_input["campaign_name"],
+            account_id=tool_input.get("account_id"),
+        )
+        return f"✅ Sugestão de nova campanha criada (ID #{approval.id}): '{tool_input['campaign_name']}' ({tool_input['objective']}, R$ {tool_input['daily_budget']:.2f}/dia). Aguardando sua aprovação."
 
     return f"Ferramenta '{tool_name}' não reconhecida."
 

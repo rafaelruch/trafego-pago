@@ -1,10 +1,17 @@
 'use client'
+import { useState } from 'react'
 import { CampaignInsight } from '@/lib/types'
+import { aiApi } from '@/lib/api'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
+import { useRouter } from 'next/navigation'
 
 interface CampaignTableProps {
   campaigns: CampaignInsight[]
   loading?: boolean
+  onOptimize?: (campaign: CampaignInsight) => Promise<void>
+  datePreset?: string
+  selectedAccount?: string
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -21,7 +28,33 @@ function RoasBadge({ roas }: { roas: number }) {
   return <span className={clsx('badge', cls)}>{roas.toFixed(2)}x</span>
 }
 
-export default function CampaignTable({ campaigns, loading }: CampaignTableProps) {
+export default function CampaignTable({ campaigns, loading, onOptimize, datePreset = 'last_7d', selectedAccount }: CampaignTableProps) {
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null)
+  const router = useRouter()
+
+  const handleOptimize = async (campaign: CampaignInsight) => {
+    if (onOptimize) {
+      return onOptimize(campaign)
+    }
+
+    // Handler padrão: chama analyze com contexto da campanha
+    setAnalyzingId(campaign.campaign_id)
+    const toastId = toast.loading(`Analisando "${campaign.campaign_name}"...`)
+    try {
+      await aiApi.analyze({
+        account_ids: [campaign.account_id || selectedAccount || ''],
+        date_preset: datePreset,
+        custom_prompt: `Analise especificamente a campanha "${campaign.campaign_name}" (ID: ${campaign.campaign_id}) com as métricas: impressões=${campaign.impressions}, cliques=${campaign.clicks}, gasto=R$${campaign.spend.toFixed(2)}, ROAS=${campaign.roas.toFixed(2)}x, CPC=R$${campaign.cpc.toFixed(2)}, conversões=${campaign.conversions}. Sugira otimizações concretas e específicas para esta campanha. Use as ferramentas disponíveis para criar as sugestões de ação.`,
+      })
+      toast.success('Análise concluída! Verifique as sugestões em Aprovações.', { id: toastId, duration: 5000 })
+      router.push('/approvals')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Erro ao analisar campanha', { id: toastId })
+    } finally {
+      setAnalyzingId(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="card overflow-hidden">
@@ -53,7 +86,7 @@ export default function CampaignTable({ campaigns, loading }: CampaignTableProps
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
-            {['Campanha', 'Status', 'Impressões', 'Cliques', 'Investimento', 'CPM', 'CPC', 'CTR', 'Conv.', 'ROAS'].map((h) => (
+            {['Campanha', 'Status', 'Impressões', 'Cliques', 'Investimento', 'CPM', 'CPC', 'CTR', 'Conv.', 'ROAS', 'Ações'].map((h) => (
               <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                 {h}
               </th>
@@ -80,6 +113,21 @@ export default function CampaignTable({ campaigns, loading }: CampaignTableProps
               <td className="px-4 py-3 text-right font-mono text-gray-700">{c.ctr.toFixed(2)}%</td>
               <td className="px-4 py-3 text-right font-mono text-gray-700">{c.conversions.toLocaleString('pt-BR')}</td>
               <td className="px-4 py-3"><RoasBadge roas={c.roas} /></td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <button
+                  onClick={() => handleOptimize(c)}
+                  disabled={analyzingId === c.campaign_id}
+                  title="Pedir à IA análise e sugestões de otimização para esta campanha"
+                  className={clsx(
+                    'text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all',
+                    analyzingId === c.campaign_id
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                  )}
+                >
+                  {analyzingId === c.campaign_id ? '⏳ Analisando...' : '🤖 Otimizar IA'}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

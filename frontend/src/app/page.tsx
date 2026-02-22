@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import Layout from '@/components/Layout'
 import MetricsCard from '@/components/MetricsCard'
 import CampaignTable from '@/components/CampaignTable'
-import { campaignsApi, reportsApi } from '@/lib/api'
+import { campaignsApi, reportsApi, aiApi } from '@/lib/api'
 import { AdAccount, CampaignInsight, DATE_PRESET_LABELS, type DatePreset } from '@/lib/types'
-import { Download, RefreshCw } from 'lucide-react'
+import { Download, RefreshCw, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>('')
   const [datePreset, setDatePreset] = useState<DatePreset>('last_7d')
   const [downloading, setDownloading] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
 
   const { data: accounts = [], isLoading: loadingAccounts } = useQuery<AdAccount[]>({
     queryKey: ['accounts'],
@@ -54,6 +56,27 @@ export default function DashboardPage() {
       investimento: c.spend,
       roas: c.roas,
     }))
+
+  const router = useRouter()
+
+  const handleSuggestCampaigns = async () => {
+    if (!selectedAccount) return
+    setSuggesting(true)
+    const toastId = toast.loading('Analisando oportunidades e gerando sugestões de novas campanhas...')
+    try {
+      await aiApi.analyze({
+        account_ids: [selectedAccount],
+        date_preset: datePreset,
+        custom_prompt: `Com base nos dados das campanhas desta conta, identifique oportunidades não exploradas e sugira 2 a 3 novas campanhas estratégicas. Para cada sugestão, use a ferramenta suggest_new_campaign com nome, objetivo, orçamento diário, público-alvo e estratégia completa. Considere: objetivos ausentes, nichos não atendidos, diversificação de criativos, e oportunidades sazonais.`,
+      })
+      toast.success('Sugestões criadas! Verifique em Aprovações.', { id: toastId, duration: 5000 })
+      router.push('/approvals')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Erro ao gerar sugestões', { id: toastId })
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   const handleDownloadPdf = async () => {
     setDownloading(true)
@@ -115,6 +138,15 @@ export default function DashboardPage() {
           <button onClick={() => refetch()} className="btn-secondary flex items-center gap-1.5 text-sm">
             <RefreshCw size={14} className={isRefetching ? 'animate-spin' : ''} />
             Atualizar
+          </button>
+
+          <button
+            onClick={handleSuggestCampaigns}
+            disabled={suggesting || !selectedAccount}
+            className="btn-secondary flex items-center gap-1.5 text-sm"
+          >
+            <Sparkles size={14} />
+            {suggesting ? 'Analisando...' : 'Sugerir Campanhas'}
           </button>
 
           <button onClick={handleDownloadPdf} disabled={downloading} className="btn-primary flex items-center gap-1.5 text-sm">
@@ -180,7 +212,7 @@ export default function DashboardPage() {
       {hasData && (
         <div className="mb-2">
           <h2 className="text-base font-semibold text-gray-900 mb-3">Campanhas</h2>
-          <CampaignTable campaigns={campaigns} loading={isLoading} />
+          <CampaignTable campaigns={campaigns} loading={isLoading} datePreset={datePreset} selectedAccount={selectedAccount} />
         </div>
       )}
     </Layout>

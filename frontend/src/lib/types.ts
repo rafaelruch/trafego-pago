@@ -93,6 +93,7 @@ export const ACTION_TYPE_LABELS: Record<string, string> = {
   enable_campaign: 'Ativar Campanha',
   adjust_budget: 'Ajustar Orçamento',
   adjust_bid: 'Ajustar Lance',
+  create_campaign: 'Criar Nova Campanha',
 }
 
 export const ACTION_TYPE_ICONS: Record<string, string> = {
@@ -100,4 +101,5 @@ export const ACTION_TYPE_ICONS: Record<string, string> = {
   enable_campaign: '▶️',
   adjust_budget: '💰',
   adjust_bid: '🎯',
+  create_campaign: '🚀',
 }
