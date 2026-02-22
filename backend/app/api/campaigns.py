@@ -60,7 +60,16 @@ def get_campaign_insights(
     """
     meta = _get_meta_service(current_user)
     try:
-        # Busca insights do período (pode retornar vazio se não há atividade)
+        # Busca todas as campanhas da conta (para obter status e nome atualizado)
+        try:
+            campaigns = meta.get_campaigns(account_id=account_id)
+        except Exception as e:
+            logger.error(f"Erro ao buscar campanhas de {account_id}: {e}")
+            campaigns = []
+
+        campaign_map = {c["campaign_id"]: c for c in campaigns}
+
+        # Busca insights do período
         try:
             insights = meta.get_campaign_insights(
                 account_id=account_id,
@@ -71,14 +80,17 @@ def get_campaign_insights(
             logger.warning(f"Sem insights para {account_id} em {date_preset}: {e}")
             insights = []
 
-        # Busca todas as campanhas da conta
-        try:
-            campaigns = meta.get_campaigns(account_id=account_id)
-        except Exception as e:
-            logger.error(f"Erro ao buscar campanhas de {account_id}: {e}")
-            campaigns = []
+        # Enriquece cada insight com status e nome corretos da campanha
+        for insight in insights:
+            cid = insight["campaign_id"]
+            if cid in campaign_map:
+                insight["status"] = campaign_map[cid]["status"]
+                insight["campaign_name"] = campaign_map[cid]["name"]
+                insight["objective"] = campaign_map[cid].get("objective", "")
+            else:
+                insight.setdefault("status", "UNKNOWN")
 
-        # Garante que campanhas ATIVAS aparecem mesmo sem dados no período
+        # Garante que campanhas ATIVAS sem dados no período aparecem com métricas zeradas
         insight_ids = {i["campaign_id"] for i in insights}
         for c in campaigns:
             if c.get("status") == "ACTIVE" and c["campaign_id"] not in insight_ids:
