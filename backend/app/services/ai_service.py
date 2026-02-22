@@ -248,7 +248,7 @@ def analyze_campaigns(
     Analisa dados de campanhas com Claude e cria sugestões de otimização.
     Usa manual agentic loop com human-in-the-loop.
     """
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY or None)
     tools = _build_tools()
 
     # Prepara contexto com dados das campanhas
@@ -324,7 +324,7 @@ def chat_with_ai(
     Chat com IA via streaming. Suporta histórico de conversa.
     Retorna generator de chunks de texto.
     """
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY or None)
     tools = _build_tools()
 
     messages = list(conversation_history or [])
