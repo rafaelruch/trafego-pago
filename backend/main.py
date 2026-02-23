@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.models.database import create_tables
 from app.models import user, approval, insight_cache  # noqa: importa modelos para criar tabelas
-from app.api import auth, campaigns, ai, approvals, reports, settings
+from app.api import auth, campaigns, ai, approvals, reports
+from app.api import settings as settings_api
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ app.include_router(campaigns.router, prefix="/api/campaigns", tags=["📊 Campan
 app.include_router(ai.router, prefix="/api/ai", tags=["🤖 IA"])
 app.include_router(approvals.router, prefix="/api/approvals", tags=["✅ Aprovações"])
 app.include_router(reports.router, prefix="/api/reports", tags=["📄 Relatórios"])
-app.include_router(settings.router, prefix="/api/settings", tags=["⚙️ Configurações"])
+app.include_router(settings_api.router, prefix="/api/settings", tags=["⚙️ Configurações"])
 
 
 @app.get("/", tags=["Status"])
