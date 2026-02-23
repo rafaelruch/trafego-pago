@@ -311,19 +311,52 @@ class MetaService:
             raise ValueError(f"Erro ao ajustar lance do adset {adset_id}: {str(e)}")
 
     def create_campaign(self, account_id: str, name: str, objective: str, daily_budget: float) -> str:
-        """Cria uma nova campanha PAUSADA na conta (usuário adiciona criativos depois)."""
+        """Cria uma nova campanha ATIVA na conta."""
         try:
             account = AdAccount(f"act_{account_id.replace('act_', '')}")
             campaign = account.create_campaign(params={
                 "name": name,
                 "objective": objective,
-                "status": Campaign.Status.paused,
+                "status": Campaign.Status.active,
                 "daily_budget": int(daily_budget * 100),
                 "special_ad_categories": [],
             })
             return campaign["id"]
         except Exception as e:
             raise ValueError(f"Erro ao criar campanha: {str(e)}")
+
+    def create_adset(
+        self,
+        account_id: str,
+        campaign_id: str,
+        name: str,
+        daily_budget: float,
+        optimization_goal: str,
+        geo_locations: Optional[Dict] = None,
+        age_min: int = 18,
+        age_max: int = 65,
+    ) -> str:
+        """Cria um conjunto de anúncios ATIVO vinculado à campanha."""
+        try:
+            account = AdAccount(f"act_{account_id.replace('act_', '')}")
+            targeting = {
+                "age_min": age_min,
+                "age_max": age_max,
+                "geo_locations": geo_locations or {"countries": ["BR"]},
+            }
+            adset = account.create_ad_set(params={
+                "name": name,
+                "campaign_id": campaign_id,
+                "daily_budget": int(daily_budget * 100),
+                "billing_event": "IMPRESSIONS",
+                "optimization_goal": optimization_goal,
+                "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+                "targeting": targeting,
+                "status": "ACTIVE",
+            })
+            return adset["id"]
+        except Exception as e:
+            raise ValueError(f"Erro ao criar conjunto de anúncios: {str(e)}")
 
     def get_adsets_targeting(self, account_id: str, campaign_ids: List[str]) -> Dict[str, List[Dict]]:
         """

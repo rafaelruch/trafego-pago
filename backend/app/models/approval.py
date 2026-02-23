@@ -20,6 +20,7 @@ class ActionType(str, enum.Enum):
     ADJUST_BID = "adjust_bid"
     DUPLICATE_ADSET = "duplicate_adset"
     CREATE_CAMPAIGN = "create_campaign"
+    CREATE_ADSET = "create_adset"
 
 
 class Approval(Base):

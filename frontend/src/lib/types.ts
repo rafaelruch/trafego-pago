@@ -94,6 +94,7 @@ export const ACTION_TYPE_LABELS: Record<string, string> = {
   adjust_budget: 'Ajustar Orçamento',
   adjust_bid: 'Ajustar Lance',
   create_campaign: 'Criar Nova Campanha',
+  create_adset: 'Criar Conjunto de Anúncios',
 }
 
 export const ACTION_TYPE_ICONS: Record<string, string> = {
@@ -102,4 +103,5 @@ export const ACTION_TYPE_ICONS: Record<string, string> = {
   adjust_budget: '💰',
   adjust_bid: '🎯',
   create_campaign: '🚀',
+  create_adset: '👥',
 }

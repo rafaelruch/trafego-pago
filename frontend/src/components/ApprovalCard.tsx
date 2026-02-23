@@ -21,8 +21,12 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
   const handleApprove = async () => {
     setLoading('approve')
     try {
-      await approvalsApi.approve(approval.id)
-      toast.success('Ação aprovada e executada!')
+      const res = await approvalsApi.approve(approval.id)
+      if (res.data?.status === 'failed') {
+        toast.error(res.data?.message || 'Falhou ao executar no Meta')
+      } else {
+        toast.success('Ação aprovada e executada!')
+      }
       onDecision()
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'Erro ao aprovar')
@@ -92,6 +96,12 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
           )}
           {payload.geo_locations && (
             <p>📍 Localização: <strong>{payload.geo_locations}</strong></p>
+          )}
+          {payload.optimization_goal && (
+            <p>🎯 Otimização: <strong>{payload.optimization_goal}</strong></p>
+          )}
+          {(payload.age_min || payload.age_max) && (
+            <p>👤 Faixa etária: <strong>{payload.age_min ?? 18}–{payload.age_max ?? 65} anos</strong></p>
           )}
           {payload.targeting_description && (
             <div>

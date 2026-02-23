@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 const TABS = [
   { key: 'pending', label: 'Pendentes', icon: '⏳' },
   { key: 'executed', label: 'Executados', icon: '✅' },
+  { key: 'failed', label: 'Falhou', icon: '❌' },
   { key: 'rejected', label: 'Rejeitados', icon: '✕' },
 ]
 
@@ -126,7 +127,7 @@ export default function ApprovalsPage() {
       ) : approvals.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">🎉</p>
-          <p className="font-medium text-gray-600">Nenhuma sugestão {tab === 'pending' ? 'pendente' : tab === 'executed' ? 'executada' : 'rejeitada'}</p>
+          <p className="font-medium text-gray-600">Nenhuma sugestão {tab === 'pending' ? 'pendente' : tab === 'executed' ? 'executada' : tab === 'failed' ? 'com falha' : 'rejeitada'}</p>
           {tab === 'pending' && (
             <p className="text-sm mt-2">Vá ao Chat IA e peça uma análise das suas campanhas!</p>
           )}
