@@ -95,35 +95,65 @@ def execute_approved_action(approval: Approval, db: Session) -> dict:
             geo_hint = f" | Localização: {payload['geo_locations']}" if payload.get("geo_locations") else ""
             result_msg = f"Campanha '{payload['campaign_name']}' criada e ATIVA (ID: {campaign_id}).{geo_hint}"
 
-            # Gera automaticamente a aprovação do conjunto de anúncios
-            optimization_goal = _objective_to_optimization_goal(payload.get("objective", ""))
-            adset_payload = json.dumps({
-                "campaign_id": campaign_id,
-                "adset_name": f"Conjunto - {payload['campaign_name']}",
-                "daily_budget": payload["daily_budget"],
-                "optimization_goal": optimization_goal,
-                "geo_locations": payload.get("geo_locations", "Brasil"),
-                "age_min": 18,
-                "age_max": 65,
-            }, ensure_ascii=False)
-            adset_approval = Approval(
-                user_id=approval.user_id,
-                action_type="create_adset",
-                payload=adset_payload,
-                ai_reasoning=(
-                    f"Conjunto de anúncios gerado automaticamente para a campanha '{payload['campaign_name']}' "
-                    f"(ID: {campaign_id}). Objetivo de otimização: {optimization_goal}. "
-                    f"Localização: {payload.get('geo_locations', 'Brasil')}. "
-                    "Revise e aprove para criar o AdSet na Meta."
-                ),
-                campaign_id=campaign_id,
-                campaign_name=payload["campaign_name"],
-                account_id=approval.account_id,
-                status=ApprovalStatus.PENDING,
-            )
-            db.add(adset_approval)
-            db.flush()
-            result_msg += f" | Aprovação do AdSet criada (#{ adset_approval.id}) — aguarda sua confirmação."
+            # Verifica se existem conjuntos sugeridos pela IA (sem campaign_id) para esta campanha
+            pending_adsets = db.query(Approval).filter(
+                Approval.user_id == approval.user_id,
+                Approval.action_type == "create_adset",
+                Approval.status == ApprovalStatus.PENDING,
+                Approval.campaign_name == payload["campaign_name"],
+            ).all()
+
+            ai_adsets_without_campaign = []
+            for adset_appr in pending_adsets:
+                try:
+                    adset_data = json.loads(adset_appr.payload)
+                    if not adset_data.get("campaign_id"):
+                        ai_adsets_without_campaign.append(adset_appr)
+                except Exception:
+                    pass
+
+            if ai_adsets_without_campaign:
+                # Vincula os conjuntos sugeridos pela IA ao campaign_id real
+                updated_ids = []
+                for adset_appr in ai_adsets_without_campaign:
+                    adset_data = json.loads(adset_appr.payload)
+                    adset_data["campaign_id"] = campaign_id
+                    adset_appr.payload = json.dumps(adset_data, ensure_ascii=False)
+                    adset_appr.campaign_id = campaign_id
+                    db.add(adset_appr)
+                    updated_ids.append(str(adset_appr.id))
+                db.flush()
+                result_msg += f" | {len(ai_adsets_without_campaign)} conjunto(s) vinculado(s) (#{', #'.join(updated_ids)}) — aguardam aprovação."
+            else:
+                # Gera automaticamente um conjunto de anúncios genérico
+                optimization_goal = _objective_to_optimization_goal(payload.get("objective", ""))
+                adset_payload = json.dumps({
+                    "campaign_id": campaign_id,
+                    "adset_name": f"Conjunto - {payload['campaign_name']}",
+                    "daily_budget": payload["daily_budget"],
+                    "optimization_goal": optimization_goal,
+                    "geo_locations": payload.get("geo_locations", "Brasil"),
+                    "age_min": 18,
+                    "age_max": 65,
+                }, ensure_ascii=False)
+                adset_approval = Approval(
+                    user_id=approval.user_id,
+                    action_type="create_adset",
+                    payload=adset_payload,
+                    ai_reasoning=(
+                        f"Conjunto de anúncios gerado automaticamente para a campanha '{payload['campaign_name']}' "
+                        f"(ID: {campaign_id}). Objetivo de otimização: {optimization_goal}. "
+                        f"Localização: {payload.get('geo_locations', 'Brasil')}. "
+                        "Revise e aprove para criar o AdSet na Meta."
+                    ),
+                    campaign_id=campaign_id,
+                    campaign_name=payload["campaign_name"],
+                    account_id=approval.account_id,
+                    status=ApprovalStatus.PENDING,
+                )
+                db.add(adset_approval)
+                db.flush()
+                result_msg += f" | Aprovação do AdSet criada (#{adset_approval.id}) — aguarda sua confirmação."
 
         elif approval.action_type == "create_adset":
             adset_geo = _parse_geo_locations(payload.get("geo_locations", ""))

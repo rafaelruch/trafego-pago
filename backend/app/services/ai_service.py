@@ -55,8 +55,33 @@ IMPORTANTE: Ao sugerir otimizações, você deve SEMPRE usar as ferramentas disp
 criar as ações de otimização. Essas ações passarão por aprovação humana antes de serem
 executadas — explique claramente o motivo de cada sugestão.
 
-Você também pode sugerir a criação de NOVAS campanhas usando a ferramenta suggest_new_campaign
-quando identificar oportunidades não exploradas (nichos, objetivos ausentes, sazonalidade, etc.).
+NOMENCLATURA DE CAMPANHAS:
+Sempre nomeie campanhas seguindo o padrão: [TIPO]-[PUBLICO]-[ACAO]
+Exemplos práticos:
+- CONVERSOES-MULHERES25-44-WHATSAPP
+- TRAFEGO-HOMENS30-50-CLIQUE
+- LEADS-DONOS-EMPRESA-FORMULARIO
+- AWARENESS-JOVENS18-25-VIDEO
+- REMARKETING-VISITANTES-SITE-COMPRA
+Use apenas letras maiúsculas, hífens e números. Sem espaços ou caracteres especiais.
+
+NOMENCLATURA DE CONJUNTOS DE ANÚNCIOS:
+Use o formato: [PUBLICO]-[INTERESSE/COMPORTAMENTO]-[FAIXA-ETARIA]
+Exemplos:
+- MULHERES-MODA-25-44
+- HOMENS-NEGOCIOS-30-55
+- LOOKALIKE-COMPRADORES-18-65
+- REMARKETING-PAGINA-18-65
+
+CRIAÇÃO DE NOVAS CAMPANHAS E CONJUNTOS:
+- Use suggest_new_campaign para criar a estrutura da campanha
+- Use suggest_adset para adicionar conjuntos de anúncios com diferentes segmentações
+- Uma campanha pode ter MÚLTIPLOS conjuntos — use suggest_adset várias vezes para
+  testar diferentes públicos (ex: um conjunto para interesse, outro para lookalike,
+  outro para remarketing)
+- Quando sugerir uma nova campanha, sugira pelo menos um conjunto de anúncios junto
+- Para criar "públicos" específicos, use suggest_adset com targeting_description detalhado
+  descrevendo os interesses, comportamentos e dados demográficos do público
 
 REGRAS SOBRE LOCALIZAÇÃO GEOGRÁFICA:
 - Cada campanha pode conter o campo "targeting_locations" com as cidades/regiões reais configuradas no Meta.
@@ -136,20 +161,41 @@ def _build_tools() -> protos.Tool:
             ),
             protos.FunctionDeclaration(
                 name="suggest_new_campaign",
-                description="Sugere a criação de uma nova campanha. Use quando identificar oportunidades não exploradas: nichos sem campanha, objetivos ausentes, sazonalidade, ou produtos/serviços sem cobertura de anúncios.",
+                description="Sugere a criação de uma nova campanha. Use quando identificar oportunidades não exploradas: nichos sem campanha, objetivos ausentes, sazonalidade, ou produtos/serviços sem cobertura de anúncios. Após chamar esta ferramenta, use suggest_adset para adicionar conjuntos de anúncios.",
                 parameters=protos.Schema(
                     type=protos.Type.OBJECT,
                     properties={
                         "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio onde criar a campanha"),
-                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome sugerido para a nova campanha"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome da campanha no padrão [TIPO]-[PUBLICO]-[ACAO]. Ex: 'CONVERSOES-MULHERES25-44-WHATSAPP', 'TRAFEGO-HOMENS30-CLIQUE', 'LEADS-DONOS-EMPRESA-FORMULARIO'"),
                         "objective": protos.Schema(type=protos.Type.STRING, description="Objetivo da campanha: CONVERSIONS, TRAFFIC, AWARENESS, LEAD_GENERATION, ENGAGEMENT, VIDEO_VIEWS, APP_INSTALLS"),
-                        "daily_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento diário sugerido em reais"),
+                        "daily_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento diário total sugerido em reais para a campanha"),
                         "geo_locations": protos.Schema(type=protos.Type.STRING, description="Cidades ou regiões alvo da campanha. Use EXATAMENTE os valores do campo 'targeting_locations' das campanhas existentes quando disponíveis. Ex: 'São Paulo, Campinas'. Se não houver dados de localização, use 'Brasil (abrangência nacional)'."),
-                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição do público-alvo sugerido (faixa etária, interesses, comportamentos — SEM repetir a localização geográfica que já foi informada em geo_locations)"),
-                        "strategy": protos.Schema(type=protos.Type.STRING, description="Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento"),
+                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição do público-alvo principal da campanha (faixa etária, interesses, comportamentos — SEM repetir a localização geográfica que já foi informada em geo_locations)"),
+                        "strategy": protos.Schema(type=protos.Type.STRING, description="Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento, quantos conjuntos serão criados"),
                         "reason": protos.Schema(type=protos.Type.STRING, description="Por que esta campanha pode gerar resultados — oportunidade identificada com base nos dados atuais"),
                     },
                     required=["account_id", "campaign_name", "objective", "daily_budget", "geo_locations", "targeting_description", "strategy", "reason"],
+                ),
+            ),
+            protos.FunctionDeclaration(
+                name="suggest_adset",
+                description="Sugere a criação de um conjunto de anúncios (AdSet) para uma campanha. Use para: (1) adicionar múltiplos conjuntos com diferentes públicos a uma nova campanha após suggest_new_campaign, (2) adicionar conjuntos a campanhas existentes, (3) criar públicos segmentados por interesse/comportamento/lookalike/remarketing.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio"),
+                        "campaign_id": protos.Schema(type=protos.Type.STRING, description="ID da campanha existente. Deixe vazio ('') se for para uma nova campanha ainda não criada (referenciada pelo campaign_name)."),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome exato da campanha (deve coincidir com o campaign_name usado em suggest_new_campaign para novas campanhas)"),
+                        "adset_name": protos.Schema(type=protos.Type.STRING, description="Nome do conjunto no padrão [PUBLICO]-[INTERESSE]-[FAIXA-ETARIA]. Ex: 'MULHERES-MODA-25-44', 'LOOKALIKE-COMPRADORES-18-65', 'REMARKETING-VISITANTES-18-65'"),
+                        "daily_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento diário em reais para este conjunto específico"),
+                        "optimization_goal": protos.Schema(type=protos.Type.STRING, description="Meta de otimização: OFFSITE_CONVERSIONS, LINK_CLICKS, REACH, LEAD_GENERATION, POST_ENGAGEMENT, THRUPLAY, APP_INSTALLS, CONVERSATIONS"),
+                        "geo_locations": protos.Schema(type=protos.Type.STRING, description="Cidades ou regiões alvo deste conjunto. Ex: 'São Paulo, Campinas'. Use 'Brasil' para abrangência nacional."),
+                        "age_min": protos.Schema(type=protos.Type.INTEGER, description="Idade mínima do público (padrão: 18)"),
+                        "age_max": protos.Schema(type=protos.Type.INTEGER, description="Idade máxima do público (padrão: 65)"),
+                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição detalhada do público deste conjunto: gênero (se aplicável), interesses específicos, comportamentos, tipo de audiência (frio/morno/quente/lookalike/remarketing). Este campo é exibido ao usuário na aprovação."),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Justificativa para este conjunto: por que este público, qual diferencial desta segmentação em relação aos outros conjuntos da campanha"),
+                    },
+                    required=["account_id", "campaign_name", "adset_name", "daily_budget", "optimization_goal", "geo_locations", "targeting_description", "reason"],
                 ),
             ),
         ]
@@ -275,7 +321,32 @@ def _execute_tool(
             campaign_name=tool_input["campaign_name"],
             account_id=tool_input.get("account_id"),
         )
-        return f"✅ Sugestão de nova campanha criada (ID #{approval.id}): '{tool_input['campaign_name']}' ({tool_input['objective']}, R$ {tool_input['daily_budget']:.2f}/dia). Aguardando sua aprovação."
+        return f"✅ Sugestão de nova campanha criada (ID #{approval.id}): '{tool_input['campaign_name']}' ({tool_input['objective']}, R$ {tool_input['daily_budget']:.2f}/dia). Agora use suggest_adset para adicionar conjuntos de anúncios a esta campanha."
+
+    elif tool_name == "suggest_adset":
+        payload = {
+            "campaign_id": tool_input.get("campaign_id", ""),
+            "adset_name": tool_input["adset_name"],
+            "daily_budget": tool_input["daily_budget"],
+            "optimization_goal": tool_input["optimization_goal"],
+            "geo_locations": tool_input.get("geo_locations", "Brasil"),
+            "age_min": tool_input.get("age_min", 18),
+            "age_max": tool_input.get("age_max", 65),
+            "targeting_description": tool_input.get("targeting_description", ""),
+        }
+        campaign_id = tool_input.get("campaign_id") or None
+        approval = _create_approval(
+            db=db,
+            user_id=user_id,
+            action_type="create_adset",
+            payload=payload,
+            ai_reasoning=reasoning,
+            campaign_id=campaign_id,
+            campaign_name=tool_input.get("campaign_name"),
+            account_id=tool_input.get("account_id"),
+        )
+        campaign_ref = f"campanha '{tool_input['campaign_name']}'"
+        return f"✅ Sugestão de conjunto criada (ID #{approval.id}): '{tool_input['adset_name']}' para {campaign_ref}. Aguardando sua aprovação."
 
     return f"Ferramenta '{tool_name}' não reconhecida."
 

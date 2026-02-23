@@ -79,6 +79,9 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
       {/* Detalhes do payload */}
       {Object.keys(payload).length > 0 && (
         <div className="bg-gray-50 rounded-lg p-3 mb-3 text-xs text-gray-600 font-mono space-y-1">
+          {payload.adset_name && (
+            <p>📦 Conjunto: <strong>{payload.adset_name}</strong></p>
+          )}
           {payload.new_budget && (
             <p>💰 Novo orçamento: <strong>R$ {Number(payload.new_budget).toFixed(2)}/dia</strong></p>
           )}
@@ -116,8 +119,17 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
             </div>
           )}
           {payload.campaign_id && (
-            <p className="text-gray-400">ID: {payload.campaign_id}</p>
+            <p className="text-gray-400">ID campanha: {payload.campaign_id}</p>
           )}
+        </div>
+      )}
+
+      {/* Aviso de dependência: adset sem campaign_id */}
+      {approval.action_type === 'create_adset' && !payload.campaign_id && approval.status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+          <p className="text-xs text-yellow-800">
+            ⏳ <strong>Aguardando campanha:</strong> Este conjunto será vinculado automaticamente quando a campanha &quot;{approval.campaign_name}&quot; for aprovada e criada.
+          </p>
         </div>
       )}
 
