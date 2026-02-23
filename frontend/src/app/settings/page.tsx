@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Layout from '@/components/Layout'
 import { authApi, settingsApi } from '@/lib/api'
@@ -25,10 +25,13 @@ export default function SettingsPage() {
   const { data: aiSettings } = useQuery({
     queryKey: ['ai-settings'],
     queryFn: () => settingsApi.getAISettings().then((r) => r.data),
-    onSuccess: (data: any) => {
-      if (!selectedModel) setSelectedModel(data.ai_model || 'gemini-2.0-flash')
-    },
   })
+
+  useEffect(() => {
+    if (aiSettings && !selectedModel) {
+      setSelectedModel(aiSettings.ai_model || 'gemini-2.0-flash')
+    }
+  }, [aiSettings])
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return
