@@ -35,8 +35,24 @@ def _get_campaigns_data(user: User, account_ids: Optional[List[str]], date_prese
 
             # Enriquece insights com status da campanha
             status_map = {c["campaign_id"]: c["status"] for c in campaigns}
+
+            # Busca targeting (geolocalização) dos adsets para cada campanha
+            campaign_ids = [i["campaign_id"] for i in insights if i.get("campaign_id")]
+            adsets_targeting = meta.get_adsets_targeting(account_id, campaign_ids)
+
             for insight in insights:
                 insight["status"] = status_map.get(insight["campaign_id"], "UNKNOWN")
+
+                # Agrega localizações de todos os adsets da campanha
+                adsets = adsets_targeting.get(insight["campaign_id"], [])
+                all_locations: list = []
+                for adset in adsets:
+                    for loc in adset.get("geo_locations", []):
+                        if loc and loc not in all_locations:
+                            all_locations.append(loc)
+                if all_locations:
+                    insight["targeting_locations"] = all_locations
+
                 all_campaigns.append(insight)
         except Exception:
             continue

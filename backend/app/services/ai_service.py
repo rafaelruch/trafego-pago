@@ -58,6 +58,13 @@ executadas — explique claramente o motivo de cada sugestão.
 Você também pode sugerir a criação de NOVAS campanhas usando a ferramenta suggest_new_campaign
 quando identificar oportunidades não exploradas (nichos, objetivos ausentes, sazonalidade, etc.).
 
+REGRAS SOBRE LOCALIZAÇÃO GEOGRÁFICA:
+- Cada campanha pode conter o campo "targeting_locations" com as cidades/regiões reais configuradas no Meta.
+- Use APENAS esse campo para mencionar localização. NUNCA invente ou suponha uma cidade/região
+  que não esteja explicitamente no campo "targeting_locations" ou no nome da campanha/adset.
+- Se "targeting_locations" não estiver presente, diga que não há dados de geolocalização disponíveis
+  em vez de inferir qualquer localidade.
+
 Fale em português brasileiro. Seja direto e objetivo nas análises.
 Forneça benchmarks do setor quando relevante.
 Priorize otimizações com maior impacto no ROAS e ROI."""
@@ -137,11 +144,12 @@ def _build_tools() -> protos.Tool:
                         "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome sugerido para a nova campanha"),
                         "objective": protos.Schema(type=protos.Type.STRING, description="Objetivo da campanha: CONVERSIONS, TRAFFIC, AWARENESS, LEAD_GENERATION, ENGAGEMENT, VIDEO_VIEWS, APP_INSTALLS"),
                         "daily_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento diário sugerido em reais"),
-                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição do público-alvo sugerido (idade, interesses, comportamentos)"),
+                        "geo_locations": protos.Schema(type=protos.Type.STRING, description="Cidades ou regiões alvo da campanha. Use EXATAMENTE os valores do campo 'targeting_locations' das campanhas existentes quando disponíveis. Ex: 'São Paulo, Campinas'. Se não houver dados de localização, use 'Brasil (abrangência nacional)'."),
+                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição do público-alvo sugerido (faixa etária, interesses, comportamentos — SEM repetir a localização geográfica que já foi informada em geo_locations)"),
                         "strategy": protos.Schema(type=protos.Type.STRING, description="Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento"),
                         "reason": protos.Schema(type=protos.Type.STRING, description="Por que esta campanha pode gerar resultados — oportunidade identificada com base nos dados atuais"),
                     },
-                    required=["account_id", "campaign_name", "objective", "daily_budget", "targeting_description", "strategy", "reason"],
+                    required=["account_id", "campaign_name", "objective", "daily_budget", "geo_locations", "targeting_description", "strategy", "reason"],
                 ),
             ),
         ]
@@ -254,6 +262,7 @@ def _execute_tool(
             "campaign_name": tool_input["campaign_name"],
             "objective": tool_input["objective"],
             "daily_budget": tool_input["daily_budget"],
+            "geo_locations": tool_input.get("geo_locations", ""),
             "targeting_description": tool_input.get("targeting_description", ""),
             "strategy": tool_input.get("strategy", ""),
         }

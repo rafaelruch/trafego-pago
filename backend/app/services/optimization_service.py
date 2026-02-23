@@ -54,7 +54,8 @@ def execute_approved_action(approval: Approval, db: Session) -> dict:
                 objective=payload["objective"],
                 daily_budget=float(payload["daily_budget"]),
             )
-            result_msg = f"Campanha '{payload['campaign_name']}' criada com sucesso (ID: {campaign_id}) — status PAUSADA. Adicione criativos e ative quando pronto."
+            geo_hint = f" | Localização sugerida para o AdSet: {payload['geo_locations']}" if payload.get("geo_locations") else ""
+            result_msg = f"Campanha '{payload['campaign_name']}' criada (ID: {campaign_id}) — PAUSADA.{geo_hint} Configure os AdSets com o targeting e ative quando pronto."
 
         else:
             return {"success": False, "error": f"Tipo de ação desconhecido: {approval.action_type}"}

@@ -90,6 +90,9 @@ export default function ApprovalCard({ approval, onDecision }: ApprovalCardProps
           {payload.daily_budget && (
             <p>💰 Orçamento diário: <strong>R$ {Number(payload.daily_budget).toFixed(2)}/dia</strong></p>
           )}
+          {payload.geo_locations && (
+            <p>📍 Localização: <strong>{payload.geo_locations}</strong></p>
+          )}
           {payload.targeting_description && (
             <div>
               <p className="font-semibold text-gray-500 mb-0.5">👥 Público-alvo:</p>

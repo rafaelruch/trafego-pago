@@ -325,6 +325,55 @@ class MetaService:
         except Exception as e:
             raise ValueError(f"Erro ao criar campanha: {str(e)}")
 
+    def get_adsets_targeting(self, account_id: str, campaign_ids: List[str]) -> Dict[str, List[Dict]]:
+        """
+        Retorna dados de targeting (geolocalização) dos adsets agrupados por campaign_id.
+        Usado para enriquecer o payload enviado à IA com localização real das campanhas.
+        """
+        if not campaign_ids:
+            return {}
+        try:
+            account = AdAccount(f"act_{account_id.replace('act_', '')}")
+            params = {
+                "filtering": [{"field": "campaign.id", "operator": "IN", "value": campaign_ids}],
+            }
+            adsets = account.get_ad_sets(
+                fields=["id", "name", "campaign_id", "targeting"],
+                params=params,
+            )
+            result: Dict[str, List[Dict]] = {}
+            for adset in adsets:
+                cid = adset.get("campaign_id")
+                if not cid:
+                    continue
+                targeting = adset.get("targeting") or {}
+                geo = targeting.get("geo_locations") or {}
+
+                locations = []
+                for city in geo.get("cities", []):
+                    name = city.get("name") or city.get("key", "")
+                    if name:
+                        locations.append(name)
+                for region in geo.get("regions", []):
+                    name = region.get("name") or region.get("key", "")
+                    if name:
+                        locations.append(name)
+                for country in geo.get("countries", []):
+                    if country:
+                        locations.append(country)
+
+                if cid not in result:
+                    result[cid] = []
+                result[cid].append({
+                    "adset_id": adset.get("id", ""),
+                    "adset_name": adset.get("name", ""),
+                    "geo_locations": list(dict.fromkeys(locations)),  # deduplica mantendo ordem
+                })
+            return result
+        except Exception as e:
+            logger.warning(f"Não foi possível buscar targeting de adsets: {e}")
+            return {}
+
     def get_user_info(self) -> Dict:
         """Retorna informações do usuário Meta."""
         try:
