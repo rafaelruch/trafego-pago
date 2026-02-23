@@ -25,3 +25,19 @@ def get_db():
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    # Migração manual: adiciona colunas novas sem Alembic
+    with engine.connect() as conn:
+        try:
+            conn.execute(
+                __import__("sqlalchemy").text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS gemini_api_key TEXT"
+                )
+            )
+            conn.execute(
+                __import__("sqlalchemy").text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_model VARCHAR(100) DEFAULT 'gemini-2.0-flash'"
+                )
+            )
+            conn.commit()
+        except Exception:
+            pass

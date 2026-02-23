@@ -19,15 +19,31 @@ logger = logging.getLogger(__name__)
 MODEL_NAME = "gemini-2.0-flash"
 
 
-def _configure_gemini() -> None:
-    """Configura o cliente Gemini com a API key."""
+def _get_user_ai_config(db: Session, user_id: int) -> tuple[str, str]:
+    """Retorna (api_key, model_name) da config do usuário ou env vars como fallback."""
+    from app.models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+
     api_key = (
-        os.environ.get("GEMINI_API_KEY")
+        (user.gemini_api_key if user else None)
+        or os.environ.get("GEMINI_API_KEY")
         or settings.GEMINI_API_KEY
         or None
     )
     if not api_key:
-        raise ValueError("GEMINI_API_KEY não configurada. Configure-a no EasyPanel.")
+        raise ValueError(
+            "GEMINI_API_KEY não configurada. Acesse Configurações → IA para inserir sua chave."
+        )
+
+    model_name = (
+        (user.ai_model if user and user.ai_model else None)
+        or MODEL_NAME
+    )
+    return api_key, model_name
+
+
+def _configure_gemini(api_key: str) -> None:
+    """Configura o cliente Gemini com a API key."""
     genai.configure(api_key=api_key)
 
 
@@ -297,9 +313,10 @@ def analyze_campaigns(
     Analisa dados de campanhas com Gemini e cria sugestões de otimização.
     Usa manual agentic loop com human-in-the-loop.
     """
-    _configure_gemini()
+    api_key, model_name = _get_user_ai_config(db, user_id)
+    _configure_gemini(api_key)
     model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
+        model_name=model_name,
         tools=[_build_tools()],
         system_instruction=SYSTEM_PROMPT,
     )
@@ -359,9 +376,10 @@ def chat_with_ai(
     Chat com IA via streaming. Suporta histórico de conversa.
     Retorna generator de chunks de texto.
     """
-    _configure_gemini()
+    api_key, model_name = _get_user_ai_config(db, user_id)
+    _configure_gemini(api_key)
     model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
+        model_name=model_name,
         tools=[_build_tools()],
         system_instruction=SYSTEM_PROMPT,
     )

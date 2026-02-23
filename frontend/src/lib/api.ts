@@ -64,6 +64,12 @@ export const approvalsApi = {
   bulkApprove: (ids: number[]) => api.post('/approvals/bulk/approve', ids),
 }
 
+export const settingsApi = {
+  getAISettings: () => api.get('/settings/ai'),
+  updateAISettings: (data: { gemini_api_key?: string; ai_model?: string }) =>
+    api.put('/settings/ai', data),
+}
+
 export const reportsApi = {
   getSummary: (datePreset = 'last_7d', accountIds?: string[]) =>
     api.get('/reports/summary', { params: { date_preset: datePreset, account_ids: accountIds } }),

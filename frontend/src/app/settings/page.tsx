@@ -2,20 +2,32 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Layout from '@/components/Layout'
-import { authApi } from '@/lib/api'
+import { authApi, settingsApi } from '@/lib/api'
 import { ApiKey } from '@/lib/types'
 import toast from 'react-hot-toast'
-import { Key, Plus, Trash2, Copy, Eye, EyeOff } from 'lucide-react'
+import { Key, Plus, Trash2, Copy, Eye, EyeOff, Bot, Save } from 'lucide-react'
 
 export default function SettingsPage() {
   const [newKeyName, setNewKeyName] = useState('')
   const [creating, setCreating] = useState(false)
   const [newKey, setNewKey] = useState<{ key: string; name: string } | null>(null)
+  const [geminiKey, setGeminiKey] = useState('')
+  const [showGeminiKey, setShowGeminiKey] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('')
+  const [savingAI, setSavingAI] = useState(false)
   const qc = useQueryClient()
 
   const { data: apiKeys = [], isLoading } = useQuery<ApiKey[]>({
     queryKey: ['api-keys'],
     queryFn: () => authApi.listApiKeys().then((r) => r.data),
+  })
+
+  const { data: aiSettings } = useQuery({
+    queryKey: ['ai-settings'],
+    queryFn: () => settingsApi.getAISettings().then((r) => r.data),
+    onSuccess: (data: any) => {
+      if (!selectedModel) setSelectedModel(data.ai_model || 'gemini-2.0-flash')
+    },
   })
 
   const handleCreate = async () => {
@@ -50,11 +62,112 @@ export default function SettingsPage() {
     toast.success('Copiado!')
   }
 
+  const handleSaveAI = async () => {
+    setSavingAI(true)
+    try {
+      const payload: { gemini_api_key?: string; ai_model?: string } = {}
+      if (geminiKey.trim()) payload.gemini_api_key = geminiKey.trim()
+      if (selectedModel) payload.ai_model = selectedModel
+      await settingsApi.updateAISettings(payload)
+      qc.invalidateQueries({ queryKey: ['ai-settings'] })
+      setGeminiKey('')
+      toast.success('Configurações de IA salvas!')
+    } catch {
+      toast.error('Erro ao salvar configurações')
+    } finally {
+      setSavingAI(false)
+    }
+  }
+
   return (
     <Layout>
       <div className="max-w-2xl">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Configurações</h1>
         <p className="text-sm text-gray-500 mb-8">Gerencie integrações e API Keys</p>
+
+        {/* Seção IA */}
+        <div className="card p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Bot size={20} className="text-brand-500" />
+            <h2 className="font-semibold text-gray-900">Configurações de IA</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Configure sua chave do Google Gemini e o modelo de IA a usar nas análises.
+            Se não configurar, o sistema usa a chave padrão da plataforma.
+          </p>
+
+          {/* Status da chave atual */}
+          {aiSettings && (
+            <div className={`rounded-xl px-4 py-3 mb-5 text-sm flex items-center gap-2 ${
+              aiSettings.has_custom_key
+                ? 'bg-green-50 text-green-800 border border-green-200'
+                : 'bg-gray-50 text-gray-600 border border-gray-200'
+            }`}>
+              <span>{aiSettings.has_custom_key ? '✅ Usando sua chave Gemini personalizada' : '🔧 Usando chave padrão da plataforma'}</span>
+            </div>
+          )}
+
+          {/* Chave Gemini */}
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Chave da API Gemini
+              <span className="text-gray-400 font-normal ml-1">(opcional — substitui a chave padrão)</span>
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showGeminiKey ? 'text' : 'password'}
+                  placeholder={aiSettings?.has_custom_key ? '••••••••••••••• (chave salva)' : 'AIzaSy...'}
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKey(!showGeminiKey)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showGeminiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+            {aiSettings?.has_custom_key && (
+              <button
+                onClick={async () => {
+                  await settingsApi.updateAISettings({ gemini_api_key: '' })
+                  qc.invalidateQueries({ queryKey: ['ai-settings'] })
+                  toast.success('Chave removida — usando chave padrão')
+                }}
+                className="text-xs text-red-500 mt-1.5 hover:underline"
+              >
+                Remover chave personalizada
+              </button>
+            )}
+          </div>
+
+          {/* Modelo */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Modelo de IA</label>
+            <select
+              value={selectedModel || aiSettings?.ai_model || 'gemini-2.0-flash'}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+            >
+              {(aiSettings?.available_models || []).map((m: { id: string; label: string }) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={handleSaveAI}
+            disabled={savingAI || (!geminiKey.trim() && !selectedModel)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Save size={15} />
+            {savingAI ? 'Salvando...' : 'Salvar configurações de IA'}
+          </button>
+        </div>
 
         {/* Seção API Keys */}
         <div className="card p-6">
