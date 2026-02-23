@@ -1,29 +1,34 @@
 """
-Serviço de IA usando Claude claude-opus-4-6 com tool use (manual loop).
+Serviço de IA usando Google Gemini com function calling (manual loop).
 As ferramentas NÃO executam imediatamente — criam registros de aprovação no DB.
 """
 import json
 import os
+import logging
 from typing import List, Dict, Any, Generator, Optional
-from datetime import datetime
 from sqlalchemy.orm import Session
 
-import anthropic
+import google.generativeai as genai
+import google.generativeai.protos as protos
 
 from app.core.config import settings
 from app.models.approval import Approval, ApprovalStatus
 
+logger = logging.getLogger(__name__)
 
-def _get_anthropic_client() -> anthropic.Anthropic:
-    """Cria cliente Anthropic buscando a API key de todas as fontes possíveis."""
+MODEL_NAME = "gemini-2.0-flash"
+
+
+def _configure_gemini() -> None:
+    """Configura o cliente Gemini com a API key."""
     api_key = (
-        os.environ.get("ANTHROPIC_API_KEY")
-        or settings.ANTHROPIC_API_KEY
+        os.environ.get("GEMINI_API_KEY")
+        or settings.GEMINI_API_KEY
         or None
     )
     if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY não configurada. Defina-a no arquivo .env do servidor.")
-    return anthropic.Anthropic(api_key=api_key)
+        raise ValueError("GEMINI_API_KEY não configurada. Configure-a no EasyPanel.")
+    genai.configure(api_key=api_key)
 
 
 SYSTEM_PROMPT = """Você é um especialista em tráfego pago digital com mais de 10 anos de experiência
@@ -42,90 +47,89 @@ Forneça benchmarks do setor quando relevante.
 Priorize otimizações com maior impacto no ROAS e ROI."""
 
 
-def _build_tools() -> List[Dict]:
-    """Define as ferramentas disponíveis para o Claude."""
-    return [
-        {
-            "name": "pause_campaign",
-            "description": "Pausa uma campanha que está com performance ruim. Use quando: ROAS < 0.5, CPC muito alto (>3x do benchmark), ou campanha com alto gasto e zero conversões.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "campaign_id": {"type": "string", "description": "ID da campanha no Meta"},
-                    "campaign_name": {"type": "string", "description": "Nome da campanha"},
-                    "account_id": {"type": "string", "description": "ID da conta de anúncio"},
-                    "reason": {"type": "string", "description": "Justificativa detalhada para pausar a campanha"},
-                },
-                "required": ["campaign_id", "campaign_name", "account_id", "reason"],
-            },
-        },
-        {
-            "name": "enable_campaign",
-            "description": "Ativa uma campanha pausada que tem potencial de melhora ou que estava em período de espera.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "campaign_id": {"type": "string", "description": "ID da campanha"},
-                    "campaign_name": {"type": "string", "description": "Nome da campanha"},
-                    "account_id": {"type": "string", "description": "ID da conta de anúncio"},
-                    "reason": {"type": "string", "description": "Justificativa para ativar a campanha"},
-                },
-                "required": ["campaign_id", "campaign_name", "account_id", "reason"],
-            },
-        },
-        {
-            "name": "adjust_budget",
-            "description": "Ajusta o orçamento diário de uma campanha. Aumente o orçamento de campanhas com ROAS alto (>2x) e diminua de campanhas com ROAS baixo.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "campaign_id": {"type": "string", "description": "ID da campanha"},
-                    "campaign_name": {"type": "string", "description": "Nome da campanha"},
-                    "account_id": {"type": "string", "description": "ID da conta de anúncio"},
-                    "current_budget": {"type": "number", "description": "Orçamento atual em reais"},
-                    "new_budget": {"type": "number", "description": "Novo orçamento diário sugerido em reais"},
-                    "reason": {"type": "string", "description": "Justificativa com métricas que embasam a mudança"},
-                },
-                "required": ["campaign_id", "campaign_name", "account_id", "new_budget", "reason"],
-            },
-        },
-        {
-            "name": "adjust_bid",
-            "description": "Ajusta o lance (bid) de um conjunto de anúncios para melhorar posicionamento ou reduzir custos.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "adset_id": {"type": "string", "description": "ID do conjunto de anúncios"},
-                    "campaign_id": {"type": "string", "description": "ID da campanha pai"},
-                    "campaign_name": {"type": "string", "description": "Nome da campanha"},
-                    "account_id": {"type": "string", "description": "ID da conta de anúncio"},
-                    "new_bid": {"type": "number", "description": "Novo valor de lance em reais"},
-                    "reason": {"type": "string", "description": "Justificativa para o ajuste de lance"},
-                },
-                "required": ["adset_id", "campaign_id", "campaign_name", "account_id", "new_bid", "reason"],
-            },
-        },
-        {
-            "name": "suggest_new_campaign",
-            "description": "Sugere a criação de uma nova campanha. Use quando identificar oportunidades não exploradas: nichos sem campanha, objetivos ausentes (ex: só há campanhas de awareness mas não de conversão), sazonalidade, ou produtos/serviços sem cobertura de anúncios.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "account_id": {"type": "string", "description": "ID da conta de anúncio onde criar a campanha"},
-                    "campaign_name": {"type": "string", "description": "Nome sugerido para a nova campanha"},
-                    "objective": {
-                        "type": "string",
-                        "description": "Objetivo da campanha: CONVERSIONS, TRAFFIC, AWARENESS, LEAD_GENERATION, ENGAGEMENT, VIDEO_VIEWS, APP_INSTALLS",
+def _build_tools() -> protos.Tool:
+    """Define as ferramentas disponíveis para o Gemini."""
+    return protos.Tool(
+        function_declarations=[
+            protos.FunctionDeclaration(
+                name="pause_campaign",
+                description="Pausa uma campanha que está com performance ruim. Use quando: ROAS < 0.5, CPC muito alto (>3x do benchmark), ou campanha com alto gasto e zero conversões.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "campaign_id": protos.Schema(type=protos.Type.STRING, description="ID da campanha no Meta"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome da campanha"),
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio"),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Justificativa detalhada para pausar a campanha"),
                     },
-                    "daily_budget": {"type": "number", "description": "Orçamento diário sugerido em reais"},
-                    "targeting_description": {"type": "string", "description": "Descrição do público-alvo sugerido (idade, interesses, comportamentos)"},
-                    "strategy": {"type": "string", "description": "Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento"},
-                    "reason": {"type": "string", "description": "Por que esta campanha pode gerar resultados — oportunidade identificada com base nos dados atuais"},
-                },
-                "required": ["account_id", "campaign_name", "objective", "daily_budget", "targeting_description", "strategy", "reason"],
-            },
-        },
-    ]
+                    required=["campaign_id", "campaign_name", "account_id", "reason"],
+                ),
+            ),
+            protos.FunctionDeclaration(
+                name="enable_campaign",
+                description="Ativa uma campanha pausada que tem potencial de melhora ou que estava em período de espera.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "campaign_id": protos.Schema(type=protos.Type.STRING, description="ID da campanha"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome da campanha"),
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio"),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Justificativa para ativar a campanha"),
+                    },
+                    required=["campaign_id", "campaign_name", "account_id", "reason"],
+                ),
+            ),
+            protos.FunctionDeclaration(
+                name="adjust_budget",
+                description="Ajusta o orçamento diário de uma campanha. Aumente o orçamento de campanhas com ROAS alto (>2x) e diminua de campanhas com ROAS baixo.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "campaign_id": protos.Schema(type=protos.Type.STRING, description="ID da campanha"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome da campanha"),
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio"),
+                        "current_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento atual em reais"),
+                        "new_budget": protos.Schema(type=protos.Type.NUMBER, description="Novo orçamento diário sugerido em reais"),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Justificativa com métricas que embasam a mudança"),
+                    },
+                    required=["campaign_id", "campaign_name", "account_id", "new_budget", "reason"],
+                ),
+            ),
+            protos.FunctionDeclaration(
+                name="adjust_bid",
+                description="Ajusta o lance (bid) de um conjunto de anúncios para melhorar posicionamento ou reduzir custos.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "adset_id": protos.Schema(type=protos.Type.STRING, description="ID do conjunto de anúncios"),
+                        "campaign_id": protos.Schema(type=protos.Type.STRING, description="ID da campanha pai"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome da campanha"),
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio"),
+                        "new_bid": protos.Schema(type=protos.Type.NUMBER, description="Novo valor de lance em reais"),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Justificativa para o ajuste de lance"),
+                    },
+                    required=["adset_id", "campaign_id", "campaign_name", "account_id", "new_bid", "reason"],
+                ),
+            ),
+            protos.FunctionDeclaration(
+                name="suggest_new_campaign",
+                description="Sugere a criação de uma nova campanha. Use quando identificar oportunidades não exploradas: nichos sem campanha, objetivos ausentes, sazonalidade, ou produtos/serviços sem cobertura de anúncios.",
+                parameters=protos.Schema(
+                    type=protos.Type.OBJECT,
+                    properties={
+                        "account_id": protos.Schema(type=protos.Type.STRING, description="ID da conta de anúncio onde criar a campanha"),
+                        "campaign_name": protos.Schema(type=protos.Type.STRING, description="Nome sugerido para a nova campanha"),
+                        "objective": protos.Schema(type=protos.Type.STRING, description="Objetivo da campanha: CONVERSIONS, TRAFFIC, AWARENESS, LEAD_GENERATION, ENGAGEMENT, VIDEO_VIEWS, APP_INSTALLS"),
+                        "daily_budget": protos.Schema(type=protos.Type.NUMBER, description="Orçamento diário sugerido em reais"),
+                        "targeting_description": protos.Schema(type=protos.Type.STRING, description="Descrição do público-alvo sugerido (idade, interesses, comportamentos)"),
+                        "strategy": protos.Schema(type=protos.Type.STRING, description="Estratégia completa: o que testar, tipo de criativo sugerido, CTA, posicionamento"),
+                        "reason": protos.Schema(type=protos.Type.STRING, description="Por que esta campanha pode gerar resultados — oportunidade identificada com base nos dados atuais"),
+                    },
+                    required=["account_id", "campaign_name", "objective", "daily_budget", "targeting_description", "strategy", "reason"],
+                ),
+            ),
+        ]
+    )
 
 
 def _create_approval(
@@ -251,6 +255,38 @@ def _execute_tool(
     return f"Ferramenta '{tool_name}' não reconhecida."
 
 
+def _get_fn_calls(response) -> list:
+    """Extrai chamadas de função de uma resposta do Gemini."""
+    fn_calls = []
+    try:
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                try:
+                    if part.function_call.name:
+                        fn_calls.append(part.function_call)
+                except AttributeError:
+                    pass
+    except Exception:
+        pass
+    return fn_calls
+
+
+def _get_text(response) -> str:
+    """Extrai texto de uma resposta do Gemini."""
+    texts = []
+    try:
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                try:
+                    if part.text:
+                        texts.append(part.text)
+                except AttributeError:
+                    pass
+    except Exception:
+        pass
+    return "".join(texts)
+
+
 def analyze_campaigns(
     campaigns_data: List[Dict],
     db: Session,
@@ -258,13 +294,16 @@ def analyze_campaigns(
     custom_prompt: Optional[str] = None,
 ) -> str:
     """
-    Analisa dados de campanhas com Claude e cria sugestões de otimização.
+    Analisa dados de campanhas com Gemini e cria sugestões de otimização.
     Usa manual agentic loop com human-in-the-loop.
     """
-    client = _get_anthropic_client()
-    tools = _build_tools()
+    _configure_gemini()
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        tools=[_build_tools()],
+        system_instruction=SYSTEM_PROMPT,
+    )
 
-    # Prepara contexto com dados das campanhas
     campaigns_json = json.dumps(campaigns_data, ensure_ascii=False, indent=2)
     user_message = f"""Analise as seguintes campanhas do Meta ADS e crie sugestões de otimização:
 
@@ -280,50 +319,33 @@ Por favor:
 3. Use as ferramentas disponíveis para criar sugestões de otimização concretas
 4. Forneça um resumo executivo com as principais conclusões e próximos passos"""
 
-    messages = [{"role": "user", "content": user_message}]
+    chat = model.start_chat()
+    response = chat.send_message(user_message)
 
     # Loop do agente até parar de chamar ferramentas
-    while True:
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=tools,
-            messages=messages,
-        ) as stream:
-            response = stream.get_final_message()
-
-        # Se parou (sem mais ferramentas para chamar), retorna
-        if response.stop_reason == "end_turn":
-            text_blocks = [b.text for b in response.content if b.type == "text"]
-            return "\n".join(text_blocks)
-
-        # Processa chamadas de ferramentas
-        if response.stop_reason == "tool_use":
-            messages.append({"role": "assistant", "content": response.content})
-
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    result = _execute_tool(
-                        tool_name=block.name,
-                        tool_input=block.input,
-                        db=db,
-                        user_id=user_id,
-                    )
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    })
-
-            messages.append({"role": "user", "content": tool_results})
-        else:
-            # Outro stop reason (max_tokens, etc.)
+    for _ in range(10):
+        fn_calls = _get_fn_calls(response)
+        if not fn_calls:
             break
 
-    text_blocks = [b.text for b in response.content if hasattr(b, "text")]
-    return "\n".join(text_blocks) if text_blocks else "Análise concluída."
+        result_parts = []
+        for fc in fn_calls:
+            result = _execute_tool(
+                tool_name=fc.name,
+                tool_input=dict(fc.args),
+                db=db,
+                user_id=user_id,
+            )
+            result_parts.append(protos.Part(
+                function_response=protos.FunctionResponse(
+                    name=fc.name,
+                    response={"result": result},
+                )
+            ))
+
+        response = chat.send_message(result_parts)
+
+    return _get_text(response) or "Análise concluída."
 
 
 def chat_with_ai(
@@ -337,62 +359,78 @@ def chat_with_ai(
     Chat com IA via streaming. Suporta histórico de conversa.
     Retorna generator de chunks de texto.
     """
-    client = _get_anthropic_client()
-    tools = _build_tools()
+    _configure_gemini()
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        tools=[_build_tools()],
+        system_instruction=SYSTEM_PROMPT,
+    )
 
-    messages = list(conversation_history or [])
+    # Converte histórico do formato Anthropic para Gemini
+    gemini_history = []
+    for msg in (conversation_history or []):
+        role = "model" if msg.get("role") == "assistant" else "user"
+        content = msg.get("content", "")
+        if isinstance(content, str) and content:
+            gemini_history.append({"role": role, "parts": [content]})
+        elif isinstance(content, list):
+            texts = [
+                p.get("text", "") for p in content
+                if isinstance(p, dict) and p.get("type") == "text" and p.get("text")
+            ]
+            if texts:
+                gemini_history.append({"role": role, "parts": [" ".join(texts)]})
 
-    # Adiciona contexto de campanhas se não tiver histórico
-    if not messages and campaigns_data:
+    chat = model.start_chat(history=gemini_history)
+
+    # Monta mensagem com contexto de campanhas se for primeira mensagem
+    if not conversation_history and campaigns_data:
         campaigns_json = json.dumps(campaigns_data[:10], ensure_ascii=False, indent=2)
-        context_msg = f"Contexto atual das campanhas:\n```json\n{campaigns_json}\n```\n\n{message}"
-        messages.append({"role": "user", "content": context_msg})
+        current_message = f"Contexto atual das campanhas:\n```json\n{campaigns_json}\n```\n\n{message}"
     else:
-        messages.append({"role": "user", "content": message})
+        current_message = message
 
-    full_response = ""
+    # Primeira chamada — detecta function calls
+    response = chat.send_message(current_message)
 
-    with client.messages.stream(
-        model="claude-opus-4-6",
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        tools=tools,
-        messages=messages,
-    ) as stream:
-        for text in stream.text_stream:
-            full_response += text
-            yield text
+    # Yield texto da primeira resposta
+    text = _get_text(response)
+    if text:
+        yield text
 
-        final = stream.get_final_message()
-
-    # Se chamou ferramentas, processa em segundo plano
-    if final.stop_reason == "tool_use":
-        messages.append({"role": "assistant", "content": final.content})
-        tool_results = []
-        for block in final.content:
-            if block.type == "tool_use":
-                result = _execute_tool(
-                    tool_name=block.name,
-                    tool_input=block.input,
-                    db=db,
-                    user_id=user_id,
+    # Processa function calls
+    fn_calls = _get_fn_calls(response)
+    if fn_calls:
+        result_parts = []
+        for fc in fn_calls:
+            result = _execute_tool(
+                tool_name=fc.name,
+                tool_input=dict(fc.args),
+                db=db,
+                user_id=user_id,
+            )
+            result_parts.append(protos.Part(
+                function_response=protos.FunctionResponse(
+                    name=fc.name,
+                    response={"result": result},
                 )
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result,
-                })
+            ))
 
-        messages.append({"role": "user", "content": tool_results})
+        yield "\n\n"
 
-        # Segunda rodada para o Claude responder após as ferramentas
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            tools=tools,
-            messages=messages,
-        ) as stream2:
-            yield "\n\n"
-            for text in stream2.text_stream:
-                yield text
+        # Segunda rodada — streaming para resposta final
+        response2 = chat.send_message(result_parts, stream=True)
+        for chunk in response2:
+            chunk_text = ""
+            try:
+                for candidate in chunk.candidates:
+                    for part in candidate.content.parts:
+                        try:
+                            if part.text:
+                                chunk_text += part.text
+                        except AttributeError:
+                            pass
+            except Exception:
+                pass
+            if chunk_text:
+                yield chunk_text

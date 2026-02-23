@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     META_APP_SECRET: str = "747f8367a5cd216b754483e77f46265e"
     META_REDIRECT_URI: str = "https://trafego.ruch.com.br/auth/callback"
 
-    # Anthropic
-    ANTHROPIC_API_KEY: str = ""
+    # Google Gemini
+    GEMINI_API_KEY: str = ""
 
     # Segurança
     SECRET_KEY: str = "change-this-in-production"
