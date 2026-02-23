@@ -16,7 +16,7 @@ from app.models.approval import Approval, ApprovalStatus
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-2.5-flash"
 
 
 def _get_user_ai_config(db: Session, user_id: int) -> tuple[str, str]:

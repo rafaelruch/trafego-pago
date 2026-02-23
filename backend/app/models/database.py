@@ -35,7 +35,7 @@ def create_tables():
             )
             conn.execute(
                 __import__("sqlalchemy").text(
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_model VARCHAR(100) DEFAULT 'gemini-2.0-flash'"
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_model VARCHAR(100) DEFAULT 'gemini-2.5-flash'"
                 )
             )
             conn.commit()

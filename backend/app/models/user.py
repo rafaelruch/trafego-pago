@@ -17,7 +17,7 @@ class User(Base):
     meta_token_expires_at = Column(DateTime, nullable=True)
     # Configurações de IA (opcional — sobrescreve env vars)
     gemini_api_key = Column(Text, nullable=True)
-    ai_model = Column(String(100), nullable=True, default="gemini-2.0-flash")
+    ai_model = Column(String(100), nullable=True, default="gemini-2.5-flash")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
